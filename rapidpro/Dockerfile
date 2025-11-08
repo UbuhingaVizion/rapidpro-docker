@@ -12,11 +12,13 @@ RUN npm install -g yarn less
 
 WORKDIR /rapidpro 
 RUN wget -O rapidpro.tar.gz "https://github.com/nyaruka/rapidpro/archive/${RAPIDPRO_TAG}.tar.gz" && tar -xf rapidpro.tar.gz --strip-components=1 && rm rapidpro.tar.gz
+RUN poetry config installer.max-workers 1
 RUN poetry install
+RUN poetry add dj-database-url
 RUN yarn install
-RUN ln -s /rapidpro/temba/settings.py.dev /rapidpro/temba/settings.py
 
 EXPOSE 8000
 COPY entrypoint.sh /rapidpro/
+COPY docker_settings.py /rapidpro/temba/settings.py
 RUN chmod +x /rapidpro/entrypoint.sh
 ENTRYPOINT ["/rapidpro/entrypoint.sh"]
