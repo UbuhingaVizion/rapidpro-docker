@@ -10,5 +10,5 @@ if [ "$ACTION" = "webapp" ]; then
     poetry run python3 manage.py runserver 0.0.0.0:8000
 elif [ "$ACTION" = "celery" ]; then
     echo "Running RapidPro celery worker..."
-	.venv/bin/celery -A temba worker -E -B --loglevel=INFO
+	poetry run celery -A temba worker -E -B --loglevel=INFO
 fi
