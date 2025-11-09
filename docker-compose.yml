@@ -23,7 +23,7 @@ services:
       timeout: 5s
 
   elastic:
-    image: elasticsearch:8.14.0
+    image: elasticsearch:7.17.20
     volumes:
       - elastic:/usr/share/elasticsearch/data
     ports:
