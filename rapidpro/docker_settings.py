@@ -15,7 +15,7 @@ from .settings_common import *  # noqa
 
 DEBUG = True
 
-STORAGE_URL = "http://localhost:8000/media"
+STORAGE_URL = os.environ.get("STORAGE_URL", "http://localhost:8000/media")
 
 # allow all hosts in dev
 ALLOWED_HOSTS = ["*"]

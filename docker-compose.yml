@@ -98,6 +98,7 @@ services:
       - REMOTE_CONTAINERS=true
       - REDIS_URL=redis://redis:6379/0
       - ELASTICSEARCH_URL=http://elastic:9200
+      - STORAGE_URL=http://localhost:9000/temba-archives
       - AWS_ACCESS_KEY_ID=root
       - AWS_SECRET_ACCESS_KEY=tembatemba
       - AWS_S3_ENDPOINT_URL=http://minio:9000
@@ -132,6 +133,7 @@ services:
       - DATABASE_URL=postgis://temba:tembatemba@postgres:5432/temba
       - REDIS_URL=redis://redis:6379/0
       - ELASTICSEARCH_URL=http://elastic:9200
+      - STORAGE_URL=http://localhost:9000/temba-archives
       - AWS_ACCESS_KEY_ID=root
       - AWS_SECRET_ACCESS_KEY=tembatemba
       - AWS_S3_ENDPOINT_URL=http://minio:9000
