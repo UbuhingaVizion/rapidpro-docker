@@ -1,0 +1,151 @@
+name: rapidpro-prod
+services:
+  nginx:
+    image: nginx
+    volumes:
+      - "./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro"
+      - sitestatic:/var/www/sitestatic:ro
+    ports:
+      - 80:80
+    depends_on:
+      - rapidpro
+      - courier
+      - mailroom
+
+  # NOTE: postgres and minio services are REMOVED
+
+  elastic:
+    image: elasticsearch:8.14.0
+    volumes:
+      - elastic:/usr/share/elasticsearch/data
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ingest.geoip.downloader.enabled=false
+      - logger.level=INFO
+    # You might want to bind ports in production, or keep it internal
+    # ports:
+    #  - 9200:9200
+
+  redis:
+    image: redis:6.2-alpine
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis:/data
+    # You might want to bind ports in production, or keep it internal
+    # ports:
+    #  - 6379:6379
+
+  rapidpro:
+    build:
+      context: ./rapidpro/
+      args:
+        - RAPIDPRO_TAG=v9.2.5
+    command: ["webapp"]
+    depends_on: # Removed postgres and minio
+      elastic: { condition: service_started }
+      redis: { condition: service_started }
+    environment:
+      - MAILROOM_URL=${MAILROOM_URL}
+      - DJANGO_SETTINGS_MODULE=temba.settings
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+      - REMOTE_CONTAINERS=true
+      - REDIS_URL=${REDIS_URL}
+      - ELASTICSEARCH_URL=${ELASTICSEARCH_URL}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_S3_ENDPOINT_URL=${AWS_S3_ENDPOINT_URL}
+      - AWS_STORAGE_BUCKET_NAME=${AWS_STORAGE_BUCKET_NAME}
+      - AWS_S3_REGION_NAME=${AWS_S3_REGION_NAME}
+      - AWS_S3_USE_SSL=${AWS_S3_USE_SSL}
+      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS}
+      - DJANGO_SECURE_PROXY_SSL_HEADER=${DJANGO_SECURE_PROXY_SSL_HEADER}
+    volumes:
+      - sitestatic:/rapidpro/sitestatic
+
+  celery:
+    build:
+      context: ./rapidpro/
+      args:
+        - RAPIDPRO_TAG=v9.2.5
+    command: ["celery"]
+    depends_on:
+      - rapidpro
+    environment:
+      - MAILROOM_URL=${MAILROOM_URL}
+      - DJANGO_SETTINGS_MODULE=temba.settings
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+      - REMOTE_CONTAINERS=true
+      - REDIS_URL=${REDIS_URL}
+      - ELASTICSEARCH_URL=${ELASTICSEARCH_URL}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_S3_ENDPOINT_URL=${AWS_S3_ENDPOINT_URL}
+      - AWS_STORAGE_BUCKET_NAME=${AWS_STORAGE_BUCKET_NAME}
+      - AWS_S3_REGION_NAME=${AWS_S3_REGION_NAME}
+      - AWS_S3_USE_SSL=${AWS_S3_USE_SSL}
+      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS}
+      - DJANGO_SECURE_PROXY_SSL_HEADER=${DJANGO_SECURE_PROXY_SSL_HEADER}
+
+  mailroom:
+    build:
+      context: https://github.com/nyaruka/mailroom.git#v9.2.2
+      dockerfile: Dockerfile
+    depends_on:
+      - rapidpro
+    environment:
+      - MAILROOM_ADDRESS=0.0.0.0
+      - MAILROOM_DB=${DATABASE_URL}
+      - MAILROOM_REDIS=${REDIS_URL}
+      - MAILROOM_ELASTIC=${ELASTICSEARCH_URL}
+      - MAILROOM_DOMAIN=${MAILROOM_DOMAIN}
+      - MAILROOM_ATTACHMENT_DOMAIN=${MAILROOM_ATTACHMENT_DOMAIN}
+      - MAILROOM_DISALLOWED_NETWORKS=${MAILROOM_DISALLOWED_NETWORKS:-}
+      - MAILROOM_AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - MAILROOM_AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - MAILROOM_S3_ENDPOINT=${AWS_S3_ENDPOINT_URL}
+      - MAILROOM_S3_SESSIONS_BUCKET=${MAILROOM_S3_SESSIONS_BUCKET:-temba-sessions}
+      - MAILROOM_S3_ATTACHMENTS_BUCKET=${MAILROOM_S3_ATTACHMENTS_BUCKET:-temba-attachments}
+      - MAILROOM_S3_LOGS_BUCKET=${MAILROOM_S3_LOGS_BUCKET:-temba-logs}
+      - MAILROOM_S3_FORCE_PATH_STYLE=${MAILROOM_S3_FORCE_PATH_STYLE:-true}
+      - MAILROOM_LOG_LEVEL=info
+
+  courier:
+    build:
+      context: https://github.com/nyaruka/courier.git#v9.2.1
+      dockerfile: Dockerfile
+    depends_on:
+      - rapidpro
+    environment:
+      - COURIER_ADDRESS=0.0.0.0
+      - COURIER_DB=${DATABASE_URL}
+      - COURIER_REDIS=${REDIS_URL}
+      - COURIER_DOMAIN=${COURIER_DOMAIN}
+      - COURIER_BASE_URL=${COURIER_BASE_URL}
+      - COURIER_DISALLOWED_NETWORKS=${COURIER_DISALLOWED_NETWORKS:-}
+      - COURIER_AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - COURIER_AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - COURIER_S3_ENDPOINT=${AWS_S3_ENDPOINT_URL}
+      - COURIER_S3_ATTACHMENTS_BUCKET=${COURIER_S3_ATTACHMENTS_BUCKET:-temba-attachments}
+      - COURIER_S3_LOGS_BUCKET=${COURIER_S3_LOGS_BUCKET:-temba-logs}
+      - COURIER_S3_FORCE_PATH_STYLE=${COURIER_S3_FORCE_PATH_STYLE:-true}
+      - COURIER_LOG_LEVEL=info
+
+  indexer:
+    build:
+      context: https://github.com/nyaruka/rp-indexer.git#v9.2.0
+      dockerfile: Dockerfile
+    depends_on:
+      - rapidpro
+    environment:
+      - INDEXER_DB=${DATABASE_URL}
+      - INDEXER_ELASTIC_URL=${ELASTICSEARCH_URL}
+      - INDEXER_LOG_LEVEL=info
+
+volumes:
+  # NOTE: postgres and minio volumes are REMOVED
+  elastic:
+  redis:
+  sitestatic:
