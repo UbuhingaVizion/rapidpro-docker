@@ -104,7 +104,7 @@ services:
     environment:
       - MAILROOM_ADDRESS=0.0.0.0
       - MAILROOM_DB=${DATABASE_URL_PSG}
-      - MAILROOM_FCM_KEY=${FCM_API_KEY}
+      - MAILROOM_ANDROID_FCM_SERVICE_ACCOUNT_FILE=/usr/src/app/google-services.json
       - MAILROOM_REDIS=${REDIS_URL}
       - MAILROOM_ELASTIC=${ELASTICSEARCH_URL}
       - MAILROOM_DOMAIN=${MAILROOM_DOMAIN:-host.docker.internal}
@@ -118,6 +118,8 @@ services:
       - MAILROOM_S3_LOGS_BUCKET=${MAILROOM_S3_LOGS_BUCKET}
       - MAILROOM_S3_FORCE_PATH_STYLE=false
       - MAILROOM_LOG_LEVEL=info
+    volumes:
+      - ./google-services.json:/usr/src/app/google-services.json:ro
 
   courier:
     build:
