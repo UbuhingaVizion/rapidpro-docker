@@ -69,3 +69,9 @@ warnings.filterwarnings(
 # Make our sitestatic URL be our static URL on development
 # -----------------------------------------------------------------------------------
 STATIC_URL = "/sitestatic/"
+
+# -----------------------------------------------------------------------------------
+# Firebase stuff
+# -----------------------------------------------------------------------------------
+
+FCM_API_KEY= os.environ.get("FCM_API_KEY", "")

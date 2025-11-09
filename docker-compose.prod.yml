@@ -73,7 +73,7 @@ services:
         - RAPIDPRO_TAG=v9.2.5
     command: ["celery"]
     depends_on:
-      - rapidpro
+      rapidpro: { condition: service_started }
     environment:
       - MAILROOM_URL=${MAILROOM_URL}
       - DJANGO_SETTINGS_MODULE=temba.settings
