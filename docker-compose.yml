@@ -83,6 +83,13 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      mailroom:
+        condition: service_healthy
+      courier:
+        condition: service_healthy
+    ports:
+      - 8000:8000
+
     environment:
       - MAILROOM_URL=http://mailroom:8090
       - DJANGO_SETTINGS_MODULE=temba.settings
@@ -139,13 +146,19 @@ services:
       context: https://github.com/nyaruka/mailroom.git#v9.2.2
       dockerfile: Dockerfile
     depends_on:
-      rapidpro:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elastic:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     ports:
       - 8090:8090
     environment:
       - MAILROOM_ADDRESS=0.0.0.0
-      - MAILROOM_DB=postgis://temba:tembatemba@postgres:5432/temba?sslmode=disable
+      - MAILROOM_DB=postgres://temba:tembatemba@postgres:5432/temba?sslmode=disable
       - MAILROOM_REDIS=redis://redis:6379/15
       - MAILROOM_ELASTIC=http://elastic:9200
       - MAILROOM_DOMAIN=${MAILROOM_DOMAIN:-host.docker.internal}
@@ -159,19 +172,29 @@ services:
       - MAILROOM_S3_LOGS_BUCKET=temba-logs
       - MAILROOM_S3_FORCE_PATH_STYLE=true
       - MAILROOM_LOG_LEVEL=info
+    healthcheck:
+      test: ["CMD", "curl", "-s", "http://localhost:8090"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
+      start_period: 10s
 
   courier:
     build: 
       context: https://github.com/nyaruka/courier.git#v9.2.1
       dockerfile: Dockerfile
     depends_on:
-      rapidpro:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     ports:
       - 8080:8080
     environment:
       - COURIER_ADDRESS=0.0.0.0
-      - COURIER_DB=postgis://temba:tembatemba@postgres:5432/temba?sslmode=disable
+      - COURIER_DB=postgres://temba:tembatemba@postgres:5432/temba?sslmode=disable
       - COURIER_REDIS=redis://redis:6379/15
       - COURIER_DOMAIN=${COURIER_DOMAIN:-host.docker.internal}
       - COURIER_BASE_URL=${COURIER_BASE_URL:-https://host.docker.internal}
@@ -183,6 +206,12 @@ services:
       - COURIER_S3_LOGS_BUCKET=temba-logs
       - COURIER_S3_FORCE_PATH_STYLE=true
       - COURIER_LOG_LEVEL=info
+    healthcheck:
+      test: ["CMD", "curl", "-s", "http://localhost:8080"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
+      start_period: 10s
 
   indexer:
     build: 
@@ -192,7 +221,7 @@ services:
       rapidpro:
         condition: service_healthy
     environment:
-      - INDEXER_DB=postgis://temba:tembatemba@postgres:5432/temba?sslmode=disable
+      - INDEXER_DB=postgres://temba:tembatemba@postgres:5432/temba?sslmode=disable
       - INDEXER_ELASTIC_URL=http://elastic:9200
       - INDEXER_LOG_LEVEL=info
 

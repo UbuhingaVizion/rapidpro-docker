@@ -24,6 +24,9 @@ INTERNAL_IPS = ("127.0.0.1",)
 DATABASES = {
     'default': dj_database_url.config(
         conn_max_age=60,
+    ),
+    "readonly": dj_database_url.config(
+        conn_max_age=60
     )
 }
 
