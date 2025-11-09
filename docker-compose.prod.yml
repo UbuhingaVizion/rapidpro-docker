@@ -100,11 +100,11 @@ services:
       context: https://github.com/nyaruka/mailroom.git#v9.2.2
       dockerfile: Dockerfile
     depends_on:
-      - rapidpro
+      rapidpro: { condition: service_started }
     environment:
       - MAILROOM_ADDRESS=0.0.0.0
       - MAILROOM_DB=${DATABASE_URL_PSG}
-      - MAILROOM_ANDROID_FCM_SERVICE_ACCOUNT_FILE=/usr/src/app/google-services.json
+      - MAILROOM_ANDROID_CREDENTIALS_FILE=/usr/src/app/google-services.json
       - MAILROOM_REDIS=${REDIS_URL}
       - MAILROOM_ELASTIC=${ELASTICSEARCH_URL}
       - MAILROOM_DOMAIN=${MAILROOM_DOMAIN:-host.docker.internal}
@@ -126,7 +126,7 @@ services:
       context: https://github.com/nyaruka/courier.git#v9.2.1
       dockerfile: Dockerfile
     depends_on:
-      - rapidpro
+      rapidpro: { condition: service_started }
     environment:
       - COURIER_ADDRESS=0.0.0.0
       - COURIER_DB=${DATABASE_URL_PSG}
@@ -147,7 +147,7 @@ services:
       context: https://github.com/nyaruka/rp-indexer.git#v9.2.0
       dockerfile: Dockerfile
     depends_on:
-      - rapidpro
+      rapidpro: { condition: service_started }
     environment:
       - INDEXER_DB=${DATABASE_URL_PSG}
       - INDEXER_ELASTIC_URL=${ELASTICSEARCH_URL}
