@@ -17,8 +17,11 @@ DEBUG = True
 
 STORAGE_URL = os.environ.get("STORAGE_URL", "http://localhost:8000/media")
 
-# allow all hosts in dev
-ALLOWED_HOSTS = ["*"]
+# read hosts from the environment, falling back to all for dev
+ALLOWED_HOSTS = [h for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "*").split(",") if h]
+
+# read trusted origins from the environment
+CSRF_TRUSTED_ORIGINS = [o for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o]
 
 INTERNAL_IPS = ("127.0.0.1",)
 DATABASES = {
