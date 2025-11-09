@@ -15,7 +15,7 @@ services:
   # NOTE: postgres and minio services are REMOVED
 
   elastic:
-    image: elasticsearch:8.14.0
+    image: elasticsearch:7.17.20
     volumes:
       - elastic:/usr/share/elasticsearch/data
     environment:
@@ -99,11 +99,11 @@ services:
       - rapidpro
     environment:
       - MAILROOM_ADDRESS=0.0.0.0
-      - MAILROOM_DB=${DATABASE_URL}
+      - MAILROOM_DB=${DATABASE_URL_PSG}
       - MAILROOM_REDIS=${REDIS_URL}
       - MAILROOM_ELASTIC=${ELASTICSEARCH_URL}
-      - MAILROOM_DOMAIN=${MAILROOM_DOMAIN}
-      - MAILROOM_ATTACHMENT_DOMAIN=${MAILROOM_ATTACHMENT_DOMAIN}
+      - MAILROOM_DOMAIN=${MAILROOM_DOMAIN:-host.docker.internal}
+      - MAILROOM_ATTACHMENT_DOMAIN=${MAILROOM_ATTACHMENT_DOMAIN:-host.docker.internal}
       - MAILROOM_DISALLOWED_NETWORKS=${MAILROOM_DISALLOWED_NETWORKS:-}
       - MAILROOM_AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - MAILROOM_AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
@@ -122,10 +122,10 @@ services:
       - rapidpro
     environment:
       - COURIER_ADDRESS=0.0.0.0
-      - COURIER_DB=${DATABASE_URL}
+      - COURIER_DB=${DATABASE_URL_PSG}
       - COURIER_REDIS=${REDIS_URL}
-      - COURIER_DOMAIN=${COURIER_DOMAIN}
-      - COURIER_BASE_URL=${COURIER_BASE_URL}
+      - COURIER_DOMAIN=${COURIER_DOMAIN:-host.docker.internal}
+      - COURIER_BASE_URL=${COURIER_BASE_URL:-https://host.docker.internal}
       - COURIER_DISALLOWED_NETWORKS=${COURIER_DISALLOWED_NETWORKS:-}
       - COURIER_AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - COURIER_AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
@@ -142,7 +142,7 @@ services:
     depends_on:
       - rapidpro
     environment:
-      - INDEXER_DB=${DATABASE_URL}
+      - INDEXER_DB=${DATABASE_URL_PSG}
       - INDEXER_ELASTIC_URL=${ELASTICSEARCH_URL}
       - INDEXER_LOG_LEVEL=info
 
