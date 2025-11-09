@@ -104,6 +104,7 @@ services:
     environment:
       - MAILROOM_ADDRESS=0.0.0.0
       - MAILROOM_DB=${DATABASE_URL_PSG}
+      - MAILROOM_FCM_KEY=${FCM_API_KEY}
       - MAILROOM_REDIS=${REDIS_URL}
       - MAILROOM_ELASTIC=${ELASTICSEARCH_URL}
       - MAILROOM_DOMAIN=${MAILROOM_DOMAIN:-host.docker.internal}
