@@ -12,8 +12,14 @@ import warnings
 import os
 import dj_database_url
 from .settings_common import *  # noqa
+from .settings_security import *  # noqa
 
-DEBUG = True
+DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() in ("true", "1")
+
+# use the header defined in docker-compose, e.g. "HTTP_X_FORWARDED_PROTO,https"
+_proxy_header = os.environ.get("DJANGO_SECURE_PROXY_SSL_HEADER")
+if _proxy_header:
+    SECURE_PROXY_SSL_HEADER = tuple(_proxy_header.split(","))
 
 STORAGE_URL = os.environ.get("STORAGE_URL", "http://localhost:8000/media")
 
@@ -40,9 +46,10 @@ MAILROOM_URL = os.environ.get("MAILROOM_URL", "http://localhost:8090")
 MAILROOM_AUTH_TOKEN = None
 
 # -----------------------------------------------------------------------------------
-# In development, add in extra logging for exceptions and the debug toolbar
+# In production, we don't want the debug exception middleware
 # -----------------------------------------------------------------------------------
-MIDDLEWARE = ("temba.middleware.ExceptionMiddleware",) + MIDDLEWARE
+if not DEBUG:
+    MIDDLEWARE = tuple(m for m in MIDDLEWARE if m != "temba.middleware.ExceptionMiddleware")
 
 # -----------------------------------------------------------------------------------
 # In development, perform background tasks in the web thread (synchronously)
