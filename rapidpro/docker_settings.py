@@ -29,6 +29,10 @@ ALLOWED_HOSTS = [h for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "*").split(",
 # read trusted origins from the environment
 CSRF_TRUSTED_ORIGINS = [o for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o]
 
+# if not set via env, derive from allowed hosts
+if not CSRF_TRUSTED_ORIGINS and ALLOWED_HOSTS and ALLOWED_HOSTS != ["*"]:
+    CSRF_TRUSTED_ORIGINS = [f"https://{h}" for h in ALLOWED_HOSTS]
+
 INTERNAL_IPS = ("127.0.0.1",)
 DATABASES = {
     'default': dj_database_url.config(
@@ -72,6 +76,17 @@ STATIC_URL = "/sitestatic/"
 
 # -----------------------------------------------------------------------------------
 # Firebase stuff
+#
+# This is the legacy FCM API key used by the FirebaseCloudMessagingType channel.
+# This is different from the service account key used by Mailroom for Android sync.
 # -----------------------------------------------------------------------------------
 
 FCM_API_KEY= os.environ.get("FCM_API_KEY", "")
+
+# -----------------------------------------------------------------------------------
+# Override the public IP addresses from the environment
+# This is required for channel types that use IP whitelisting.
+# -----------------------------------------------------------------------------------
+_ip_addresses = os.environ.get("RAPIDPRO_IP_ADDRESSES")
+if _ip_addresses:
+    IP_ADDRESSES = tuple(ip.strip() for ip in _ip_addresses.split(","))

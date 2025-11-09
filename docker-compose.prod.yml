@@ -8,9 +8,9 @@ services:
     ports:
       - "127.0.0.1:8080:80"
     depends_on:
-      - rapidpro
-      - courier
-      - mailroom
+      rapidpro: { condition: service_started }
+      courier: { condition: service_started }
+      mailroom: { condition: service_started }
 
   # NOTE: postgres and minio services are REMOVED
 
@@ -62,8 +62,10 @@ services:
       - AWS_S3_REGION_NAME=${AWS_S3_REGION_NAME}
       - AWS_S3_USE_SSL=${AWS_S3_USE_SSL}
       - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS}
-      - DJANGO_CSRF_TRUSTED_ORIGINS=${DJANGO_CSRF_TRUSTED_ORIGINS}
+      - DJANGO_CSRF_TRUSTED_ORIGINS=${DJANGO_CSRF_TRUSTED_ORIGINS:-https://ingo.tuganire.info}
       - DJANGO_SECURE_PROXY_SSL_HEADER=${DJANGO_SECURE_PROXY_SSL_HEADER}
+      - RAPIDPRO_IP_ADDRESSES=${RAPIDPRO_IP_ADDRESSES}
+      - RAPIDPRO_IP_ADDRESSES=${RAPIDPRO_IP_ADDRESSES}
     volumes:
       - sitestatic:/rapidpro/sitestatic
 
@@ -92,7 +94,7 @@ services:
       - AWS_S3_REGION_NAME=${AWS_S3_REGION_NAME}
       - AWS_S3_USE_SSL=${AWS_S3_USE_SSL}
       - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS}
-      - DJANGO_CSRF_TRUSTED_ORIGINS=${DJANGO_CSRF_TRUSTED_ORIGINS}
+      - DJANGO_CSRF_TRUSTED_ORIGINS=${DJANGO_CSRF_TRUSTED_ORIGINS:-https://ingo.tuganire.info}
       - DJANGO_SECURE_PROXY_SSL_HEADER=${DJANGO_SECURE_PROXY_SSL_HEADER}
 
   mailroom:
@@ -104,7 +106,7 @@ services:
     environment:
       - MAILROOM_ADDRESS=0.0.0.0
       - MAILROOM_DB=${DATABASE_URL_PSG}
-      - MAILROOM_ANDROID_CREDENTIALS_FILE=/usr/src/app/google-services.json
+      - MAILROOM_ANDROID_CREDENTIALS_FILE=/usr/src/app/firebase-service-account.json
       - MAILROOM_REDIS=${REDIS_URL}
       - MAILROOM_ELASTIC=${ELASTICSEARCH_URL}
       - MAILROOM_DOMAIN=${MAILROOM_DOMAIN:-host.docker.internal}
@@ -119,7 +121,7 @@ services:
       - MAILROOM_S3_FORCE_PATH_STYLE=false
       - MAILROOM_LOG_LEVEL=info
     volumes:
-      - ./google-services.json:/usr/src/app/google-services.json:ro
+      - ./firebase-service-account.json:/usr/src/app/firebase-service-account.json:ro
 
   courier:
     build:
