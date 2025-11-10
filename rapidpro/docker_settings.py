@@ -90,3 +90,15 @@ FCM_API_KEY= os.environ.get("FCM_API_KEY", "")
 _ip_addresses = os.environ.get("RAPIDPRO_IP_ADDRESSES")
 if _ip_addresses:
     IP_ADDRESSES = tuple(ip.strip() for ip in _ip_addresses.split(","))
+
+# -----------------------------------------------------------------------------------
+# Email settings from environment
+# -----------------------------------------------------------------------------------
+if os.environ.get("DJANGO_EMAIL_HOST"):
+    SEND_EMAILS = os.environ.get("DJANGO_SEND_EMAILS", "True").lower() in ("true", "1")
+    EMAIL_HOST = os.environ.get("DJANGO_EMAIL_HOST")
+    EMAIL_PORT = int(os.environ.get("DJANGO_EMAIL_PORT", "587"))
+    EMAIL_USE_TLS = os.environ.get("DJANGO_EMAIL_USE_TLS", "True").lower() in ("true", "1")
+    EMAIL_HOST_USER = os.environ.get("DJANGO_EMAIL_HOST_USER")
+    EMAIL_HOST_PASSWORD = os.environ.get("DJANGO_EMAIL_HOST_PASSWORD")
+    DEFAULT_FROM_EMAIL = os.environ.get("DJANGO_DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
