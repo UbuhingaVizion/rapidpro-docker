@@ -121,6 +121,7 @@ services:
       - MAILROOM_ADDRESS=0.0.0.0
       - MAILROOM_DB=${DATABASE_URL_PSG}
       - MAILROOM_ANDROID_CREDENTIALS_FILE=/usr/src/app/firebase-service-account.json
+      - MAILROOM_SMTP_SERVER=${MAILROOM_SMTP_SERVER}
       - MAILROOM_REDIS=${REDIS_URL}
       - MAILROOM_ELASTIC=${ELASTICSEARCH_URL}
       - MAILROOM_DOMAIN=${MAILROOM_DOMAIN:-host.docker.internal}
