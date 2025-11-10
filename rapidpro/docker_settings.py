@@ -92,6 +92,13 @@ if _ip_addresses:
     IP_ADDRESSES = tuple(ip.strip() for ip in _ip_addresses.split(","))
 
 # -----------------------------------------------------------------------------------
+# System Hostname from environment
+# -----------------------------------------------------------------------------------
+_hostname = os.environ.get("RAPIDPRO_HOSTNAME")
+if _hostname:
+    HOSTNAME = _hostname
+
+# -----------------------------------------------------------------------------------
 # Branding settings from environment
 # -----------------------------------------------------------------------------------
 _brand_domain = os.environ.get("RAPIDPRO_BRAND_DOMAIN")

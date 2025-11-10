@@ -11,5 +11,6 @@ if [ "$ACTION" = "webapp" ]; then
     exec poetry run gunicorn temba.wsgi:application --bind 0.0.0.0:8000 --workers 4
 elif [ "$ACTION" = "celery" ]; then
     echo "Running RapidPro celery worker..."
-    exec poetry run celery -A temba worker -E -B --loglevel=INFO
+    shift  # Removes the "celery" action from the argument list
+    exec poetry run celery -A temba worker -E -B "$@" # Passes the remaining arguments
 fi

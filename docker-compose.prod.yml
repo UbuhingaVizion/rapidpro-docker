@@ -42,7 +42,7 @@ services:
       args:
         - RAPIDPRO_TAG=v9.2.5
     command: ["webapp"]
-    depends_on: # Removed postgres and minio
+    depends_on:
       elastic: { condition: service_started }
       redis: { condition: service_started }
     environment:
@@ -77,6 +77,7 @@ services:
       - RAPIDPRO_BRAND_EMAIL=${RAPIDPRO_BRAND_EMAIL}
       - RAPIDPRO_BRAND_SUPPORT_EMAIL=${RAPIDPRO_BRAND_SUPPORT_EMAIL}
       - RAPIDPRO_BRAND_ALLOW_SIGNUPS=${RAPIDPRO_BRAND_ALLOW_SIGNUPS}
+      - RAPIDPRO_HOSTNAME=${RAPIDPRO_HOSTNAME}
     volumes:
       - sitestatic:/rapidpro/sitestatic
 
@@ -85,10 +86,11 @@ services:
       context: ./rapidpro/
       args:
         - RAPIDPRO_TAG=v9.2.5
-    command: ["celery"]
+    command: ["celery", "--loglevel=${CELERY_LOG_LEVEL:-info}"]
     depends_on:
       rapidpro: { condition: service_started }
     environment:
+      - CELERY_LOG_LEVEL=${CELERY_LOG_LEVEL}
       - MAILROOM_URL=${MAILROOM_URL}
       - DJANGO_SETTINGS_MODULE=temba.settings
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
@@ -120,6 +122,7 @@ services:
       - RAPIDPRO_BRAND_EMAIL=${RAPIDPRO_BRAND_EMAIL}
       - RAPIDPRO_BRAND_SUPPORT_EMAIL=${RAPIDPRO_BRAND_SUPPORT_EMAIL}
       - RAPIDPRO_BRAND_ALLOW_SIGNUPS=${RAPIDPRO_BRAND_ALLOW_SIGNUPS}
+      - RAPIDPRO_HOSTNAME=${RAPIDPRO_HOSTNAME}
 
   mailroom:
     build:
