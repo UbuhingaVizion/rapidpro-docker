@@ -92,6 +92,31 @@ if _ip_addresses:
     IP_ADDRESSES = tuple(ip.strip() for ip in _ip_addresses.split(","))
 
 # -----------------------------------------------------------------------------------
+# Branding settings from environment
+# -----------------------------------------------------------------------------------
+_brand_domain = os.environ.get("RAPIDPRO_BRAND_DOMAIN")
+if _brand_domain:
+    BRAND["domain"] = _brand_domain
+    BRAND["link"] = f"https://{_brand_domain}"
+    BRAND["hosts"] = [_brand_domain]
+
+_brand_name = os.environ.get("RAPIDPRO_BRAND_NAME")
+if _brand_name:
+    BRAND["name"] = _brand_name
+
+_brand_email = os.environ.get("RAPIDPRO_BRAND_EMAIL")
+if _brand_email:
+    BRAND["email"] = _brand_email
+
+_brand_support_email = os.environ.get("RAPIDPRO_BRAND_SUPPORT_EMAIL")
+if _brand_support_email:
+    BRAND["support_email"] = _brand_support_email
+
+_brand_allow_signups = os.environ.get("RAPIDPRO_BRAND_ALLOW_SIGNUPS")
+if _brand_allow_signups:
+    BRAND["allow_signups"] = _brand_allow_signups.lower() in ("true", "1")
+
+# -----------------------------------------------------------------------------------
 # Email settings from environment
 # -----------------------------------------------------------------------------------
 if os.environ.get("DJANGO_EMAIL_HOST"):
