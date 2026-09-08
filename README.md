@@ -1,27 +1,58 @@
-# 🐳 RapidPro Docker
+# 🐳 RapidPro Docker — surveyor-modern
 
-[![Build Status](https://github.com/nyaruka/rapidpro-docker/workflows/CI/badge.svg)](https://github.com/nyaruka/rapidpro-docker/actions?query=workflow%3ACI)
+Docker compose for a **Surveyor-capable RapidPro stack** pinned to the last release train that
+supports the offline [RapidPro Surveyor](https://github.com/rapidpro/surveyor) Android client.
 
-Docker compose for the latest stable release of RapidPro from Nyaruka (9.2.x).
+> ⚠️ This branch is deliberately **not** the latest RapidPro. Upstream removed Surveyor support in
+> Mailroom `v9.1.10` (2024-02-23). This branch pins the stack before that cutoff.
 
-Includes:
- - RapidPro webapp and celery worker ([License](https://github.com/nyaruka/rapidpro/blob/main/LICENSE))
- - Mailroom ([License](https://github.com/nyaruka/mailroom/blob/main/LICENSE))
- - Courier ([License](https://github.com/nyaruka/courier/blob/main/LICENSE))
- - Indexer ([License](https://github.com/nyaruka/rp-indexer/blob/main/LICENSE))
- - nginx
- - PostgreSQL (postgis)
- - Elasticsearch
- - Redis
- - Minio (S3 emulator)
+## Version locks
 
-These example containers are for development purposes only and are not suitable for production deployments.
+| Service | Version | Why |
+|---|---|---|
+| RapidPro (webapp + celery) | `v7.4.2` | surveyor-era API v2 + `role=S`, flow spec ≤13.x |
+| Mailroom | `v9.1.9` | last release serving `POST /mr/surveyor/submit` |
+| Courier | `v9.1.9` | era-matched |
+| rp-indexer | `v9.1.9` | era-matched |
+| Elasticsearch | `7.17.20` | RapidPro 7.4 uses ES7 (ES8 deferred) |
+| nginx | latest | routes `/mr/` → mailroom |
+
+Includes: RapidPro webapp + celery, Mailroom, Courier, Indexer, nginx, PostgreSQL (postgis), Redis,
+Minio (S3 emulator).
+
+These containers are for development/test use; hardening for production is handled in later stages.
 
 ## Usage
 
-```
-docker compose up -d
+```bash
+docker compose up -d --build
 ```
 
-The webapp will then be accessible at [http://localhost](http://localhost) and you will be able to create 
-a test workspace at [http://localhost/org/signup](http://localhost/org/signup).
+The webapp is then at [http://localhost](http://localhost); create a test workspace at
+[http://localhost/org/signup](http://localhost/org/signup). For Surveyor to see an org, its flows
+must be **type = survey** and the user must hold the **Surveyor** role.
+
+## Surveyor acceptance gate
+
+After the stack is healthy, run the gate to confirm Surveyor compatibility:
+
+```bash
+export RAPIDPRO_EMAIL=<surveyor-role user>
+export RAPIDPRO_PASSWORD=<password>
+export BASE_URL=http://localhost
+./scripts/surveyor_gate.sh
+```
+
+It checks: `role=S` authentication, the surveyor v2 endpoints, presence of survey flows with a
+supported `spec_version` (11.x/13.x), and that `/mr/surveyor/submit` is **not** 404.
+
+CI (`.github/workflows/gate.yml`) validates the version locks and script syntax on push; the full
+stack smoke test is run manually on a docker-capable host (see the script comment).
+
+## Gotchas (first build)
+
+- Building RapidPro 7.4.2 with Poetry on Python 3.11 may need a Rust toolchain if
+  `cryptography 3.4.7` has no wheel for this Python (`apt-get install -y rustc cargo`, or drop the
+  base image to `python:3.9-bullseye` for the baseline). Stage 1 moves the image to uv + Python 3.12.
+- Keep published survey flows at `spec_version` ≤ 13.x so the phone's embedded engine can run them.
+- The Android app (this branch's counterpart) expects HTTPS in the field; HTTP above is for local testing.
