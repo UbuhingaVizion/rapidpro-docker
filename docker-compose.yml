@@ -71,7 +71,7 @@ services:
     build:
       context: ./rapidpro/
       args:
-        - RAPIDPRO_TAG=v9.2.5
+        - RAPIDPRO_TAG=v7.4.2
     command: ["webapp"]
     depends_on:
       postgres:
@@ -115,7 +115,7 @@ services:
     build:
       context: ./rapidpro/
       args:
-        - RAPIDPRO_TAG=v9.2.5
+        - RAPIDPRO_TAG=v7.4.2
     command: ["celery"]
     depends_on:
       rapidpro:
@@ -139,7 +139,7 @@ services:
 
   mailroom:
     build: 
-      context: https://github.com/nyaruka/mailroom.git#v9.2.2
+      context: https://github.com/nyaruka/mailroom.git#v9.1.9
       dockerfile: Dockerfile
     depends_on:
       postgres:
@@ -177,7 +177,7 @@ services:
 
   courier:
     build: 
-      context: https://github.com/nyaruka/courier.git#v9.2.1
+      context: https://github.com/nyaruka/courier.git#v9.1.9
       dockerfile: Dockerfile
     depends_on:
       postgres:
@@ -211,7 +211,7 @@ services:
 
   indexer:
     build: 
-      context: https://github.com/nyaruka/rp-indexer.git#v9.2.0
+      context: https://github.com/nyaruka/rp-indexer.git#v9.1.9
       dockerfile: Dockerfile
     depends_on:
       rapidpro:

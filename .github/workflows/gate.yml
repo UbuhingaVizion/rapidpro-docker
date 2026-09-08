@@ -1,0 +1,40 @@
+name: surveyor-modern checks
+
+on:
+  push:
+    branches: [surveyor-modern]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    name: Validate compose & gate script
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate docker-compose.yml
+        run: |
+          python3 -c "
+          import yaml
+          d = yaml.safe_load(open('docker-compose.yml'))
+          rp = d['services']['rapidpro']['build']['args'][0]
+          assert rp == 'RAPIDPRO_TAG=v7.4.2', rp
+          for svc in ('mailroom', 'courier'):
+              ctx = d['services'][svc]['build']['context']
+              assert ctx.endswith('#v9.1.9'), ctx
+          ctx = d['services']['indexer']['build']['context']
+          assert ctx.endswith('#v9.1.9'), ctx
+          assert '7.17.20' in d['services']['elastic']['image'], d['services']['elastic']['image']
+          print('surveyor-modern version locks OK')
+          "
+
+      - name: Validate gate script syntax
+        run: bash -n scripts/surveyor_gate.sh
+
+  # Full stack smoke test (docker compose build + up + surveyor_gate.sh).
+  # Deliberately manual: it builds RapidPro 7.4.2, Mailroom/Courier/rp-indexer
+  # v9.1.9 and an ES container, which exceeds comfortable standard-runner times.
+  # Trigger from a docker-capable runner (self-hosted) or run locally:
+  #   docker compose up -d --build
+  #   RAPIDPRO_EMAIL=... RAPIDPRO_PASSWORD=... BASE_URL=http://localhost ./scripts/surveyor_gate.sh
