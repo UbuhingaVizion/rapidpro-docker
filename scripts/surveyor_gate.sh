@@ -113,7 +113,7 @@ CODE=$(curl -sS -o /dev/null -w "%{http_code}" -X POST \
 if [ "$CODE" = "404" ]; then
   fail "/mr/surveyor/submit -> 404 (mailroom has no surveyor support - upgrade mailroom!)"
 else
-  pass "/mr/surveyor/submit present (responded $CODE; 400/401/403 expected for empty payload)"
+  pass "/mr/surveyor/submit present (responded $CODE; any non-404 means the route exists)"
 fi
 
 echo

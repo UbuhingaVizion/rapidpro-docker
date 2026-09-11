@@ -18,23 +18,31 @@ jobs:
           python3 -c "
           import yaml
           d = yaml.safe_load(open('docker-compose.yml'))
-          rp = d['services']['rapidpro']['build']['args'][0]
-          assert rp == 'RAPIDPRO_TAG=v7.4.2', rp
-          for svc in ('mailroom', 'courier'):
-              ctx = d['services'][svc]['build']['context']
-              assert ctx.endswith('#v9.1.9'), ctx
-          ctx = d['services']['indexer']['build']['context']
-          assert ctx.endswith('#v9.1.9'), ctx
-          assert '7.17.20' in d['services']['elastic']['image'], d['services']['elastic']['image']
-          print('surveyor-modern version locks OK')
+          svcs = d['services']
+
+          def args(svc):
+              return dict(x.split('=', 1) for x in svcs[svc]['build']['args'])
+
+          rp = args('rapidpro')
+          assert rp['RAPIDPRO_REPO'] == 'UbuhingaVizion/rapidpro', rp
+          assert rp['RAPIDPRO_TAG'] == 'develop', rp
+          assert args('mailroom')['MAILROOM_REF'] == 'v7.5.13', args('mailroom')
+          assert args('courier')['COURIER_REF'] == 'v7.5.13', args('courier')
+          assert args('indexer')['INDEXER_REF'] == 'v7.4.0', args('indexer')
+          assert args('archiver')['ARCHIVER_REF'] == 'v7.5.0', args('archiver')
+          assert svcs['elastic']['image'] == 'elasticsearch:7.17.9', svcs['elastic']['image']
+          assert '16-3.5-alpine' in svcs['postgres']['image'], svcs['postgres']['image']
+          assert '7.2-alpine' in svcs['redis']['image'], svcs['redis']['image']
+          print('rapidpro-docker version locks OK')
           "
 
       - name: Validate gate script syntax
         run: bash -n scripts/surveyor_gate.sh
 
   # Full stack smoke test (docker compose build + up + surveyor_gate.sh).
-  # Deliberately manual: it builds RapidPro 7.4.2, Mailroom/Courier/rp-indexer
-  # v9.1.9 and an ES container, which exceeds comfortable standard-runner times.
-  # Trigger from a docker-capable runner (self-hosted) or run locally:
+  # Deliberately manual: it builds RapidPro develop (uv) plus Mailroom/Courier
+  # v7.5.13 and rp-indexer v7.4.0 from source, which exceeds comfortable
+  # standard-runner times. Trigger from a docker-capable runner (self-hosted) or
+  # run locally:
   #   docker compose up -d --build
   #   RAPIDPRO_EMAIL=... RAPIDPRO_PASSWORD=... BASE_URL=http://localhost ./scripts/surveyor_gate.sh
