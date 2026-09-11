@@ -118,7 +118,7 @@ services:
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-a-secret-key-change-me}
       - DATABASE_URL=postgis://temba:tembatemba@postgres:5432/temba
       - REMOTE_CONTAINERS=true
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=redis://redis:6379/15
       - ELASTICSEARCH_URL=http://elastic:9200
       - AWS_ACCESS_KEY_ID=root
       - AWS_SECRET_ACCESS_KEY=tembatemba
@@ -130,6 +130,7 @@ services:
       - STORAGE_URL=${STORAGE_URL:-http://localhost/media}
       - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-*}
       - DJANGO_SECURE_PROXY_SSL_HEADER=HTTP_X_FORWARDED_PROTO,https
+      - DJANGO_CSRF_TRUSTED_ORIGINS=${DJANGO_CSRF_TRUSTED_ORIGINS:-https://*.ngrok-free.app,https://app.ubuviz.com}
     volumes:
       - sitestatic:/rapidpro/sitestatic
     healthcheck:
@@ -145,7 +146,8 @@ services:
       args:
         - RAPIDPRO_REPO=UbuhingaVizion/rapidpro
         - RAPIDPRO_TAG=develop
-    command: ["celery"]
+    command: ["worker"]
+    restart: unless-stopped
     depends_on:
       rapidpro:
         condition: service_healthy
@@ -157,7 +159,7 @@ services:
       - DJANGO_SETTINGS_MODULE=temba.settings
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-a-secret-key-change-me}
       - DATABASE_URL=postgis://temba:tembatemba@postgres:5432/temba
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=redis://redis:6379/15
       - ELASTICSEARCH_URL=http://elastic:9200
       - AWS_ACCESS_KEY_ID=root
       - AWS_SECRET_ACCESS_KEY=tembatemba
@@ -169,6 +171,40 @@ services:
       - STORAGE_URL=${STORAGE_URL:-http://localhost/media}
       - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-*}
       - DJANGO_SECURE_PROXY_SSL_HEADER=HTTP_X_FORWARDED_PROTO,https
+      - DJANGO_CSRF_TRUSTED_ORIGINS=${DJANGO_CSRF_TRUSTED_ORIGINS:-https://*.ngrok-free.app,https://app.ubuviz.com}
+
+  celerybeat:
+    build:
+      context: ./rapidpro/
+      args:
+        - RAPIDPRO_REPO=UbuhingaVizion/rapidpro
+        - RAPIDPRO_TAG=develop
+    command: ["beat"]
+    restart: unless-stopped
+    depends_on:
+      rapidpro:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      - MAILROOM_URL=http://mailroom:8090
+      - REMOTE_CONTAINERS=true
+      - DJANGO_SETTINGS_MODULE=temba.settings
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-a-secret-key-change-me}
+      - DATABASE_URL=postgis://temba:tembatemba@postgres:5432/temba
+      - REDIS_URL=redis://redis:6379/15
+      - ELASTICSEARCH_URL=http://elastic:9200
+      - AWS_ACCESS_KEY_ID=root
+      - AWS_SECRET_ACCESS_KEY=tembatemba
+      - AWS_S3_ENDPOINT_URL=http://minio:9000
+      - AWS_STORAGE_BUCKET_NAME=temba-archives
+      - AWS_S3_REGION_NAME=us-east-1
+      - AWS_S3_USE_SSL=false
+      - AWS_ENDPOINT_URL=http://minio:9000
+      - STORAGE_URL=${STORAGE_URL:-http://localhost/media}
+      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-*}
+      - DJANGO_SECURE_PROXY_SSL_HEADER=HTTP_X_FORWARDED_PROTO,https
+      - DJANGO_CSRF_TRUSTED_ORIGINS=${DJANGO_CSRF_TRUSTED_ORIGINS:-https://*.ngrok-free.app,https://app.ubuviz.com}
 
   mailroom:
     build:

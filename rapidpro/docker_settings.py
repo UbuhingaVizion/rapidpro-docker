@@ -17,6 +17,21 @@ DEBUG = os.environ.get("DJANGO_DEBUG", "false").lower() in ("1", "true", "yes")
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "unsafe-dev-secret-change-me")
 ALLOWED_HOSTS = [h for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "*").split(",") if h]
 
+# Behind a TLS-terminating proxy (nginx / ngrok). Without this Django treats the request as
+# HTTP, so the HTTPS Origin header fails the CSRF check.
+_proxy_ssl_header = os.environ.get("DJANGO_SECURE_PROXY_SSL_HEADER", "HTTP_X_FORWARDED_PROTO,https")
+SECURE_PROXY_SSL_HEADER = tuple(p.strip() for p in _proxy_ssl_header.split(","))
+USE_X_FORWARDED_HOST = True
+
+# Origins permitted to POST (CSRF). Supports Django's "*" wildcard.
+CSRF_TRUSTED_ORIGINS = [
+    o.strip()
+    for o in os.environ.get(
+        "DJANGO_CSRF_TRUSTED_ORIGINS", "https://*.ngrok-free.app,https://app.ubuviz.com"
+    ).split(",")
+    if o.strip()
+]
+
 INTERNAL_IPS = ("127.0.0.1",)
 DATABASES = {
     'default': dj_database_url.config(

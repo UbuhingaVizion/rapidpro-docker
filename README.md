@@ -83,6 +83,13 @@ stack smoke test is run manually on a docker-capable host (see the script commen
   `minio-init` one-shot service creates `temba-archives`/`temba-attachments`/`temba-logs`/
   `temba-sessions` and makes `temba-archives` publicly readable. nginx proxies `/media/` to that
   bucket so media URLs are served from the same public origin.
+- **Background jobs** run as two containers: `celery` (worker, `celery -A temba worker`) and
+  `celerybeat` (scheduler, `celery -A temba beat`), split so beat runs exactly once even if you scale
+  workers. `docker_settings.py` sets `CELERY_TASK_ALWAYS_EAGER = False`, so tasks queue to Redis.
+- **Redis DB must match**: RapidPro queues mailroom batch tasks (contact imports, flow starts,
+  broadcasts, campaign events) on its Django **default cache** Redis DB, and mailroom/courier read
+  their queues from Redis DB **15**. All four use DB 15 here (`REDIS_URL=redis://redis:6379/15`).
+  If you change it, change `MAILROOM_REDIS`/`COURIER_REDIS` too or those jobs silently never run.
 - Keep published survey flows at `spec_version` ≤ 13.x so the phone's embedded engine can run them.
 - The Android app expects HTTPS in the field; HTTP above is for local testing.
 
