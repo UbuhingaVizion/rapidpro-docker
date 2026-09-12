@@ -127,6 +127,10 @@ services:
       - AWS_S3_REGION_NAME=us-east-1
       - AWS_S3_USE_SSL=false
       - AWS_ENDPOINT_URL=http://minio:9000
+      # botocore >=1.36 sends checksums by default which MinIO rejects on multipart
+      # uploads ("request has multiple authentication types") - restore legacy behaviour
+      - AWS_REQUEST_CHECKSUM_CALCULATION=when_required
+      - AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
       - STORAGE_URL=${STORAGE_URL:-http://localhost/media}
       - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-*}
       - DJANGO_SECURE_PROXY_SSL_HEADER=HTTP_X_FORWARDED_PROTO,https
@@ -168,6 +172,10 @@ services:
       - AWS_S3_REGION_NAME=us-east-1
       - AWS_S3_USE_SSL=false
       - AWS_ENDPOINT_URL=http://minio:9000
+      # botocore >=1.36 sends checksums by default which MinIO rejects on multipart
+      # uploads ("request has multiple authentication types") - restore legacy behaviour
+      - AWS_REQUEST_CHECKSUM_CALCULATION=when_required
+      - AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
       - STORAGE_URL=${STORAGE_URL:-http://localhost/media}
       - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-*}
       - DJANGO_SECURE_PROXY_SSL_HEADER=HTTP_X_FORWARDED_PROTO,https
@@ -201,6 +209,10 @@ services:
       - AWS_S3_REGION_NAME=us-east-1
       - AWS_S3_USE_SSL=false
       - AWS_ENDPOINT_URL=http://minio:9000
+      # botocore >=1.36 sends checksums by default which MinIO rejects on multipart
+      # uploads ("request has multiple authentication types") - restore legacy behaviour
+      - AWS_REQUEST_CHECKSUM_CALCULATION=when_required
+      - AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
       - STORAGE_URL=${STORAGE_URL:-http://localhost/media}
       - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-*}
       - DJANGO_SECURE_PROXY_SSL_HEADER=HTTP_X_FORWARDED_PROTO,https
