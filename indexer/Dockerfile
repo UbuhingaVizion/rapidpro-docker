@@ -1,17 +1,18 @@
-FROM golang:1.26-bookworm AS build
+FROM debian:bookworm-slim
 
 ARG INDEXER_REF=v7.4.0
 
-WORKDIR /src
-RUN git clone --depth 1 --branch "${INDEXER_REF}" https://github.com/nyaruka/rp-indexer.git .
-
-ENV CGO_ENABLED=0
-RUN go build -v -o /out/app github.com/nyaruka/rp-indexer/cmd/rp-indexer
-
-FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        ca-certificates tzdata \
+        ca-certificates tzdata curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=build /out/app /usr/local/bin/app
-CMD ["app"]
+# use the prebuilt release binary (nyaruka publishes these; source builds were
+# unreliable on constrained networks)
+RUN set -e; \
+    ver="${INDEXER_REF#v}"; \
+    curl -fsSL -o /tmp/app.tgz \
+      "https://github.com/nyaruka/rp-indexer/releases/download/${INDEXER_REF}/rp-indexer_${ver}_linux_amd64.tar.gz"; \
+    tar -xzf /tmp/app.tgz -C /usr/local/bin rp-indexer; \
+    rm /tmp/app.tgz
+
+CMD ["rp-indexer"]

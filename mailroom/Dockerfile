@@ -6,7 +6,8 @@ WORKDIR /src
 RUN git clone --depth 1 --branch "${MAILROOM_REF}" https://github.com/nyaruka/mailroom.git .
 
 ENV CGO_ENABLED=0
-RUN go build -v -o /out/app github.com/nyaruka/mailroom/cmd/mailroom
+ENV GOPROXY=https://goproxy.io,direct
+RUN for i in 1 2 3 4 5; do go build -v -o /out/app github.com/nyaruka/mailroom/cmd/mailroom && break || sleep 10; done
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \

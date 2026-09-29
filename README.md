@@ -21,7 +21,7 @@ Go service versions chosen to match its `v7.4.2` database schema. It targets the
 | Elasticsearch | `7.17.9` | RapidPro develop CI version (ES7) |
 | PostgreSQL | `postgis/postgis:16-3.5-alpine` | matches RapidPro develop CI |
 | Redis | `7.2-alpine` | matches RapidPro develop CI |
-| MinIO | latest | S3 emulator for media/attachments |
+| SeaweedFS | `4.47` | S3-compatible object store for media/attachments |
 | nginx | latest | routes `/mr/` → mailroom |
 
 ## Why this train
@@ -39,8 +39,8 @@ Go service versions chosen to match its `v7.4.2` database schema. It targets the
   `django-hamlpy` and a smartmin 4→5 upgrade — a separate project.
 
 Includes: RapidPro webapp + celery, Mailroom, Courier, rp-indexer, rp-archiver, nginx, PostgreSQL
-(PostGIS), Redis, MinIO (S3 emulator). These containers are for development/test use; production
-hardening is handled in later stages.
+(PostGIS), Redis, SeaweedFS (S3-compatible object store). These containers are for development/test
+use; production hardening is handled in later stages.
 
 ## Usage
 
@@ -78,11 +78,13 @@ stack smoke test is run manually on a docker-capable host (see the script commen
   images, so each is compiled from source at its pinned tag with the current Go toolchain
   (`golang:1.26`) in `mailroom/`, `courier/`, `indexer/`, and `archiver/`.
 - **Static files** (`/sitestatic/`) are produced by `collectstatic` into the shared `sitestatic`
-  volume and served by **nginx** (not MinIO, not whitenoise).
-- **User media** is stored in **MinIO** (the S3 replacement) in the `temba-archives` bucket. The
-  `minio-init` one-shot service creates `temba-archives`/`temba-attachments`/`temba-logs`/
-  `temba-sessions` and makes `temba-archives` publicly readable. nginx proxies `/media/` to that
-  bucket so media URLs are served from the same public origin.
+  volume and served by **nginx** (not the object store, not whitenoise).
+- **User media** is stored in **SeaweedFS** (S3-compatible; all-in-one `weed server -s3`, image
+  `chrislusf/seaweedfs:4.47`, cosign-signed) in the `temba-archives` bucket. The `seaweedfs-init`
+  one-shot creates `temba-archives`/`temba-attachments`/`temba-logs`/`temba-sessions` and applies a
+  public-read bucket policy to `temba-archives` (Surveyor downloads media by URL). The S3 port
+  (8333) is internal only; nginx proxies `/media/` to that bucket so media URLs are served from the
+  same public origin.
 - **Background jobs** run as two containers: `celery` (worker, `celery -A temba worker`) and
   `celerybeat` (scheduler, `celery -A temba beat`), split so beat runs exactly once even if you scale
   workers. `docker_settings.py` sets `CELERY_TASK_ALWAYS_EAGER = False`, so tasks queue to Redis.
@@ -106,9 +108,10 @@ Set these before `docker compose up -d --build` (e.g. in a `.env` file):
 | `COURIER_DOMAIN` / `COURIER_BASE_URL` | `rapidpro.example.org` / `https://rapidpro.example.org` | courier URLs |
 
 - **Statics**: nginx serves `/sitestatic/` from the `sitestatic` volume — no extra config needed.
-- **Media**: nginx serves `/media/` by proxying to MinIO's `temba-archives` bucket, so keep
-  `STORAGE_URL` pointed at `https://<domain>/media`. Don't expose the MinIO console (9001) publicly.
+- **Media**: nginx serves `/media/` by proxying to SeaweedFS's `temba-archives` bucket (public-read
+  via bucket policy), so keep `STORAGE_URL` pointed at `https://<domain>/media`. The SeaweedFS S3
+  port (8333) is intentionally not published; keep it internal.
 - **TLS**: terminate HTTPS in front of nginx (an external load balancer, or add a TLS server block /
   certbot sidecar). The field Surveyor app requires HTTPS.
-- If you prefer to serve media directly from MinIO instead of the nginx proxy, set `STORAGE_URL` to
-  the MinIO public URL (e.g. `https://minio.example.org/temba-archives`) and expose 9000 with TLS.
+- If you prefer to serve media directly from SeaweedFS instead of the nginx proxy, set `STORAGE_URL`
+  to its public URL (e.g. `https://s3.example.org/temba-archives`) and expose 8333 with TLS.

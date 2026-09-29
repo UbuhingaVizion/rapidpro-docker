@@ -16,7 +16,7 @@ services:
     volumes:
       - postgres:/var/lib/postgresql/data
     ports:
-      - 5432:5432
+      - "127.0.0.1:5433:5432" # host already runs postgres on 5432
     environment:
       - POSTGRES_USER=temba
       - POSTGRES_DB=temba
@@ -48,46 +48,52 @@ services:
     volumes:
       - redis:/data
     ports:
-      - 6379:6379
+      - "127.0.0.1:6380:6379" # host already runs redis on 6379
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 2s
 
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
-    ports:
-      - 9000:9000
-      - 9001:9001
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.47
+    command: >
+      server -s3 -dir=/data -ip.bind=0.0.0.0
+      -s3.config=/etc/seaweedfs/s3.json
+      -master.volumeSizeLimitMB=1024
     volumes:
-      - minio:/data
-    environment:
-      - MINIO_ROOT_USER=root
-      - MINIO_ROOT_PASSWORD=tembatemba
+      - seaweedfs:/data
+      - ./seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9333/cluster/status >/dev/null || exit 1"]
       interval: 5s
-      timeout: 2s
-      retries: 5
+      timeout: 3s
+      retries: 10
 
   # one-shot: create the buckets RapidPro/Mailroom/Courier expect and make the media
-  # bucket publicly readable (Surveyor downloads media by URL)
-  minio-init:
-    image: minio/mc:latest
+  # bucket publicly readable (Surveyor downloads media by URL). The SeaweedFS S3 port
+  # is intentionally not published; nginx proxies /media/ to it.
+  seaweedfs-init:
+    image: amazon/aws-cli:latest
     depends_on:
-      minio:
+      seaweedfs:
         condition: service_healthy
+    environment:
+      - AWS_ACCESS_KEY_ID=root
+      - AWS_SECRET_ACCESS_KEY=tembatemba
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_EC2_METADATA_DISABLED=true
     entrypoint: >
       /bin/sh -c "
-      until mc alias set local http://minio:9000 root tembatemba >/dev/null 2>&1; do sleep 1; done;
-      mc mb --ignore-existing local/temba-archives;
-      mc mb --ignore-existing local/temba-attachments;
-      mc mb --ignore-existing local/temba-logs;
-      mc mb --ignore-existing local/temba-sessions;
-      mc anonymous set download local/temba-archives;
+      until aws --endpoint-url http://seaweedfs:8333 s3 ls >/dev/null 2>&1; do sleep 1; done;
+      aws --endpoint-url http://seaweedfs:8333 s3 mb s3://temba-archives || true;
+      aws --endpoint-url http://seaweedfs:8333 s3 mb s3://temba-attachments || true;
+      aws --endpoint-url http://seaweedfs:8333 s3 mb s3://temba-logs || true;
+      aws --endpoint-url http://seaweedfs:8333 s3 mb s3://temba-sessions || true;
+      aws --endpoint-url http://seaweedfs:8333 s3api put-bucket-policy --bucket temba-archives --policy file:///policy/public-read-policy.json;
       exit 0;
       "
+    volumes:
+      - ./seaweedfs:/policy:ro
     restart: "no"
 
   rapidpro:
@@ -104,7 +110,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio-init:
+      seaweedfs-init:
         condition: service_completed_successfully
       mailroom:
         condition: service_healthy
@@ -122,12 +128,12 @@ services:
       - ELASTICSEARCH_URL=http://elastic:9200
       - AWS_ACCESS_KEY_ID=root
       - AWS_SECRET_ACCESS_KEY=tembatemba
-      - AWS_S3_ENDPOINT_URL=http://minio:9000
+      - AWS_S3_ENDPOINT_URL=http://seaweedfs:8333
       - AWS_STORAGE_BUCKET_NAME=temba-archives
       - AWS_S3_REGION_NAME=us-east-1
       - AWS_S3_USE_SSL=false
-      - AWS_ENDPOINT_URL=http://minio:9000
-      # botocore >=1.36 sends checksums by default which MinIO rejects on multipart
+      - AWS_ENDPOINT_URL=http://seaweedfs:8333
+      # botocore >=1.36 sends checksums by default which some S3-compatible servers reject on multipart
       # uploads ("request has multiple authentication types") - restore legacy behaviour
       - AWS_REQUEST_CHECKSUM_CALCULATION=when_required
       - AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
@@ -155,7 +161,7 @@ services:
     depends_on:
       rapidpro:
         condition: service_healthy
-      minio-init:
+      seaweedfs-init:
         condition: service_completed_successfully
     environment:
       - MAILROOM_URL=http://mailroom:8090
@@ -167,12 +173,12 @@ services:
       - ELASTICSEARCH_URL=http://elastic:9200
       - AWS_ACCESS_KEY_ID=root
       - AWS_SECRET_ACCESS_KEY=tembatemba
-      - AWS_S3_ENDPOINT_URL=http://minio:9000
+      - AWS_S3_ENDPOINT_URL=http://seaweedfs:8333
       - AWS_STORAGE_BUCKET_NAME=temba-archives
       - AWS_S3_REGION_NAME=us-east-1
       - AWS_S3_USE_SSL=false
-      - AWS_ENDPOINT_URL=http://minio:9000
-      # botocore >=1.36 sends checksums by default which MinIO rejects on multipart
+      - AWS_ENDPOINT_URL=http://seaweedfs:8333
+      # botocore >=1.36 sends checksums by default which some S3-compatible servers reject on multipart
       # uploads ("request has multiple authentication types") - restore legacy behaviour
       - AWS_REQUEST_CHECKSUM_CALCULATION=when_required
       - AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
@@ -192,7 +198,7 @@ services:
     depends_on:
       rapidpro:
         condition: service_healthy
-      minio-init:
+      seaweedfs-init:
         condition: service_completed_successfully
     environment:
       - MAILROOM_URL=http://mailroom:8090
@@ -204,12 +210,12 @@ services:
       - ELASTICSEARCH_URL=http://elastic:9200
       - AWS_ACCESS_KEY_ID=root
       - AWS_SECRET_ACCESS_KEY=tembatemba
-      - AWS_S3_ENDPOINT_URL=http://minio:9000
+      - AWS_S3_ENDPOINT_URL=http://seaweedfs:8333
       - AWS_STORAGE_BUCKET_NAME=temba-archives
       - AWS_S3_REGION_NAME=us-east-1
       - AWS_S3_USE_SSL=false
-      - AWS_ENDPOINT_URL=http://minio:9000
-      # botocore >=1.36 sends checksums by default which MinIO rejects on multipart
+      - AWS_ENDPOINT_URL=http://seaweedfs:8333
+      # botocore >=1.36 sends checksums by default which some S3-compatible servers reject on multipart
       # uploads ("request has multiple authentication types") - restore legacy behaviour
       - AWS_REQUEST_CHECKSUM_CALCULATION=when_required
       - AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
@@ -230,7 +236,7 @@ services:
         condition: service_healthy
       elastic:
         condition: service_healthy
-      minio-init:
+      seaweedfs-init:
         condition: service_completed_successfully
     ports:
       - 8090:8090
@@ -244,7 +250,7 @@ services:
       - MAILROOM_DISALLOWED_NETWORKS=6.6.6.6
       - MAILROOM_AWS_ACCESS_KEY_ID=root
       - MAILROOM_AWS_SECRET_ACCESS_KEY=tembatemba
-      - MAILROOM_S3_ENDPOINT=http://minio:9000
+      - MAILROOM_S3_ENDPOINT=http://seaweedfs:8333
       - MAILROOM_S3_REGION=us-east-1
       - MAILROOM_S3_MEDIA_BUCKET=temba-attachments
       - MAILROOM_S3_SESSION_BUCKET=temba-sessions
@@ -268,7 +274,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio-init:
+      seaweedfs-init:
         condition: service_completed_successfully
     ports:
       - 8080:8080
@@ -281,7 +287,7 @@ services:
       - COURIER_DISALLOWED_NETWORKS=6.6.6.6
       - COURIER_AWS_ACCESS_KEY_ID=root
       - COURIER_AWS_SECRET_ACCESS_KEY=tembatemba
-      - COURIER_S3_ENDPOINT=http://minio:9000
+      - COURIER_S3_ENDPOINT=http://seaweedfs:8333
       - COURIER_S3_REGION=us-east-1
       - COURIER_S3_ATTACHMENTS_BUCKET=temba-attachments
       - COURIER_S3_DISABLE_SSL=true
@@ -315,11 +321,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      minio-init:
+      seaweedfs-init:
         condition: service_completed_successfully
     environment:
       - ARCHIVER_DB=postgres://temba:tembatemba@postgres:5432/temba?sslmode=disable
-      - ARCHIVER_S3_ENDPOINT=http://minio:9000
+      - ARCHIVER_S3_ENDPOINT=http://seaweedfs:8333
       - ARCHIVER_S3_REGION=us-east-1
       - ARCHIVER_S3_BUCKET=temba-archives
       - ARCHIVER_S3_DISABLE_SSL=true
@@ -341,7 +347,7 @@ volumes:
     driver: local
   redis:
     driver: local
-  minio:
+  seaweedfs:
     driver: local
   sitestatic:
     driver: local
