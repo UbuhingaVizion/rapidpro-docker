@@ -1,13 +1,8 @@
 FROM python:3.12-slim-bookworm
 
-ARG RAPIDPRO_REPO=UbuhingaVizion/rapidpro
-ARG RAPIDPRO_TAG=develop
-ENV RAPIDPRO_REPO=${RAPIDPRO_REPO}
-ENV RAPIDPRO_TAG=${RAPIDPRO_TAG}
-
 # system deps: gdal for Django GIS, ffmpeg for media, libmagic for file detection,
-# node/npm for the flow-editor & temba-components static assets, curl/wget for
-# fetching the source and for the container healthcheck
+# node/npm for the flow-editor & temba-components static assets, curl for the
+# container healthcheck
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libgdal-dev gdal-bin \
         libpq-dev \
@@ -15,7 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libffi-dev libssl-dev \
         libxml2-dev libxslt1-dev \
         libmagic1 \
-        ffmpeg curl wget ca-certificates \
+        ffmpeg curl ca-certificates \
         nodejs npm \
     && rm -rf /var/lib/apt/lists/*
 
@@ -27,9 +22,10 @@ ENV PATH="/root/.local/bin:$PATH"
 RUN npm install -g n && n 20 && npm install -g less
 
 WORKDIR /rapidpro
-RUN wget -O rapidpro.tar.gz "https://github.com/${RAPIDPRO_REPO}/archive/${RAPIDPRO_TAG}.tar.gz" \
-    && tar -xf rapidpro.tar.gz --strip-components=1 \
-    && rm rapidpro.tar.gz
+# RapidPro source is the sibling UbuhingaVizion/rapidpro checkout, passed in as the
+# `rapidprosrc` additional build context (see docker-compose.yml). Overlays in this
+# directory (docker_settings.py, entrypoint.sh) are copied on top below.
+COPY --from=rapidprosrc . /rapidpro
 
 # create the venv and install the locked dependency set with uv.
 # [tool.uv] package = false means uv sync installs dependencies only, not the project.

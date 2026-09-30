@@ -89,7 +89,7 @@ services:
       aws --endpoint-url http://seaweedfs:8333 s3 mb s3://temba-attachments || true;
       aws --endpoint-url http://seaweedfs:8333 s3 mb s3://temba-logs || true;
       aws --endpoint-url http://seaweedfs:8333 s3 mb s3://temba-sessions || true;
-      aws --endpoint-url http://seaweedfs:8333 s3api put-bucket-policy --bucket temba-archives --policy file:///policy/public-read-policy.json;
+      aws --endpoint-url http://seaweedfs:8333 s3api put-bucket-policy --bucket temba-attachments --policy file:///policy/public-read-policy.json;
       exit 0;
       "
     volumes:
@@ -99,9 +99,8 @@ services:
   rapidpro:
     build:
       context: ./rapidpro/
-      args:
-        - RAPIDPRO_REPO=UbuhingaVizion/rapidpro
-        - RAPIDPRO_TAG=develop
+      additional_contexts:
+        rapidprosrc: ../rapidpro
     command: ["webapp"]
     depends_on:
       postgres:
@@ -129,7 +128,7 @@ services:
       - AWS_ACCESS_KEY_ID=root
       - AWS_SECRET_ACCESS_KEY=tembatemba
       - AWS_S3_ENDPOINT_URL=http://seaweedfs:8333
-      - AWS_STORAGE_BUCKET_NAME=temba-archives
+      - AWS_STORAGE_BUCKET_NAME=temba-attachments
       - AWS_S3_REGION_NAME=us-east-1
       - AWS_S3_USE_SSL=false
       - AWS_ENDPOINT_URL=http://seaweedfs:8333
@@ -153,9 +152,8 @@ services:
   celery:
     build:
       context: ./rapidpro/
-      args:
-        - RAPIDPRO_REPO=UbuhingaVizion/rapidpro
-        - RAPIDPRO_TAG=develop
+      additional_contexts:
+        rapidprosrc: ../rapidpro
     command: ["worker"]
     restart: unless-stopped
     depends_on:
@@ -174,7 +172,7 @@ services:
       - AWS_ACCESS_KEY_ID=root
       - AWS_SECRET_ACCESS_KEY=tembatemba
       - AWS_S3_ENDPOINT_URL=http://seaweedfs:8333
-      - AWS_STORAGE_BUCKET_NAME=temba-archives
+      - AWS_STORAGE_BUCKET_NAME=temba-attachments
       - AWS_S3_REGION_NAME=us-east-1
       - AWS_S3_USE_SSL=false
       - AWS_ENDPOINT_URL=http://seaweedfs:8333
@@ -190,9 +188,8 @@ services:
   celerybeat:
     build:
       context: ./rapidpro/
-      args:
-        - RAPIDPRO_REPO=UbuhingaVizion/rapidpro
-        - RAPIDPRO_TAG=develop
+      additional_contexts:
+        rapidprosrc: ../rapidpro
     command: ["beat"]
     restart: unless-stopped
     depends_on:
@@ -211,7 +208,7 @@ services:
       - AWS_ACCESS_KEY_ID=root
       - AWS_SECRET_ACCESS_KEY=tembatemba
       - AWS_S3_ENDPOINT_URL=http://seaweedfs:8333
-      - AWS_STORAGE_BUCKET_NAME=temba-archives
+      - AWS_STORAGE_BUCKET_NAME=temba-attachments
       - AWS_S3_REGION_NAME=us-east-1
       - AWS_S3_USE_SSL=false
       - AWS_ENDPOINT_URL=http://seaweedfs:8333

@@ -9,7 +9,7 @@
         "s3:GetObject"
       ],
       "Resource": [
-        "arn:aws:s3:::temba-archives/*"
+        "arn:aws:s3:::temba-attachments/*"
       ]
     }
   ]

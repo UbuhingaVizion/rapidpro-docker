@@ -48,6 +48,9 @@ use; production hardening is handled in later stages.
 docker compose up -d --build
 ```
 
+The build uses the sibling `UbuhingaVizion/rapidpro` checkout at `../rapidpro` as RapidPro's
+source (compose `rapidprosrc` additional build context), so that repo must sit next to this one.
+
 The webapp is then at [http://localhost](http://localhost); create a test workspace at
 [http://localhost/org/signup](http://localhost/org/signup). For Surveyor to see an org, its flows
 must be **type = survey** and the user must hold the **Surveyor** role.
@@ -71,20 +74,24 @@ stack smoke test is run manually on a docker-capable host (see the script commen
 
 ## Build tooling
 
-- **RapidPro image** runs Python 3.12 and installs dependencies with **uv** (`uv sync --frozen
-  --no-dev`) from the committed `uv.lock`. It also installs **Node 20 + npm** and runs `npm install`
-  so the flow-editor and temba-components static assets exist for `collectstatic`.
+- **RapidPro image** builds from the sibling `../rapidpro` checkout (UbuhingaVizion/rapidpro
+  `develop`) via the `rapidprosrc` additional build context, so it always uses the local surveyor
+  source (including uncommitted changes). This repo overlays `rapidpro/docker_settings.py` (copied
+  to `temba/settings.py`) and `rapidpro/entrypoint.sh`. The image runs Python 3.12 and installs
+  dependencies with **uv** (`uv sync --frozen --no-dev`) from the checkout's committed `uv.lock`.
+  It also installs **Node 20 + npm** and runs `npm install` so the flow-editor and
+  temba-components static assets exist for `collectstatic`.
 - **Go services** (Mailroom/Courier/rp-indexer/rp-archiver) have no upstream Dockerfiles or published
   images, so each is compiled from source at its pinned tag with the current Go toolchain
   (`golang:1.26`) in `mailroom/`, `courier/`, `indexer/`, and `archiver/`.
 - **Static files** (`/sitestatic/`) are produced by `collectstatic` into the shared `sitestatic`
   volume and served by **nginx** (not the object store, not whitenoise).
 - **User media** is stored in **SeaweedFS** (S3-compatible; all-in-one `weed server -s3`, image
-  `chrislusf/seaweedfs:4.47`, cosign-signed) in the `temba-archives` bucket. The `seaweedfs-init`
+  `chrislusf/seaweedfs:4.47`, cosign-signed) in the `temba-attachments` bucket. The `seaweedfs-init`
   one-shot creates `temba-archives`/`temba-attachments`/`temba-logs`/`temba-sessions` and applies a
-  public-read bucket policy to `temba-archives` (Surveyor downloads media by URL). The S3 port
+  public-read bucket policy to `temba-attachments` (Surveyor downloads media by URL). The S3 port
   (8333) is internal only; nginx proxies `/media/` to that bucket so media URLs are served from the
-  same public origin.
+  same public origin. `temba-archives` is used only by rp-archiver.
 - **Background jobs** run as two containers: `celery` (worker, `celery -A temba worker`) and
   `celerybeat` (scheduler, `celery -A temba beat`), split so beat runs exactly once even if you scale
   workers. `docker_settings.py` sets `CELERY_TASK_ALWAYS_EAGER = False`, so tasks queue to Redis.
@@ -108,10 +115,10 @@ Set these before `docker compose up -d --build` (e.g. in a `.env` file):
 | `COURIER_DOMAIN` / `COURIER_BASE_URL` | `rapidpro.example.org` / `https://rapidpro.example.org` | courier URLs |
 
 - **Statics**: nginx serves `/sitestatic/` from the `sitestatic` volume — no extra config needed.
-- **Media**: nginx serves `/media/` by proxying to SeaweedFS's `temba-archives` bucket (public-read
+- **Media**: nginx serves `/media/` by proxying to SeaweedFS's `temba-attachments` bucket (public-read
   via bucket policy), so keep `STORAGE_URL` pointed at `https://<domain>/media`. The SeaweedFS S3
   port (8333) is intentionally not published; keep it internal.
 - **TLS**: terminate HTTPS in front of nginx (an external load balancer, or add a TLS server block /
   certbot sidecar). The field Surveyor app requires HTTPS.
 - If you prefer to serve media directly from SeaweedFS instead of the nginx proxy, set `STORAGE_URL`
-  to its public URL (e.g. `https://s3.example.org/temba-archives`) and expose 8333 with TLS.
+  to its public URL (e.g. `https://s3.example.org/temba-attachments`) and expose 8333 with TLS.

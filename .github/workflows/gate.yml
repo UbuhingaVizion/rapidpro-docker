@@ -23,9 +23,12 @@ jobs:
           def args(svc):
               return dict(x.split('=', 1) for x in svcs[svc]['build']['args'])
 
-          rp = args('rapidpro')
-          assert rp['RAPIDPRO_REPO'] == 'UbuhingaVizion/rapidpro', rp
-          assert rp['RAPIDPRO_TAG'] == 'develop', rp
+          def addl(svc):
+              return svcs[svc]['build'].get('additional_contexts') or {}
+
+          # RapidPro is built from the sibling UbuhingaVizion/rapidpro checkout
+          for svc in ('rapidpro', 'celery', 'celerybeat'):
+              assert addl(svc).get('rapidprosrc') == '../rapidpro', (svc, addl(svc))
           assert args('mailroom')['MAILROOM_REF'] == 'v7.5.13', args('mailroom')
           assert args('courier')['COURIER_REF'] == 'v7.5.13', args('courier')
           assert args('indexer')['INDEXER_REF'] == 'v7.4.0', args('indexer')

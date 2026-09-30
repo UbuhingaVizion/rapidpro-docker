@@ -69,13 +69,13 @@ INSTALLED_APPS = INSTALLED_APPS + ("storages",)
 DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
 AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID", "root")
 AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY", "tembatemba")
-AWS_STORAGE_BUCKET_NAME = os.environ.get("AWS_STORAGE_BUCKET_NAME", "temba-archives")
+AWS_STORAGE_BUCKET_NAME = os.environ.get("AWS_STORAGE_BUCKET_NAME", "temba-attachments")
 AWS_S3_ENDPOINT_URL = os.environ.get("AWS_S3_ENDPOINT_URL", "http://seaweedfs:8333")
 AWS_S3_REGION_NAME = os.environ.get("AWS_S3_REGION_NAME", "us-east-1")
 AWS_S3_USE_SSL = os.environ.get("AWS_S3_USE_SSL", "false").lower() in ("1", "true", "yes")
 AWS_S3_ADDRESSING_STYLE = "path"
-# The temba-archives bucket is made public via a bucket policy set by the compose
-# seaweedfs-init service rather than per-object ACLs.
+# The temba-attachments (media) bucket is made public via a bucket policy set by the
+# compose seaweedfs-init service rather than per-object ACLs.
 AWS_DEFAULT_ACL = None
 
 STORAGE_URL = os.environ.get("STORAGE_URL", "http://localhost/media")
