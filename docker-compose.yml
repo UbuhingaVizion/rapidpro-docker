@@ -260,12 +260,34 @@ services:
       retries: 5
       start_period: 10s
 
+  # Compatibility shim: RapidPro's user table is `auth_user`, but courier v26 looks up the system
+  # user via `users_user`. Expose a view so courier can boot against a RapidPro schema. One-shot;
+  # runs only when the channels/full profiles are active. Persistent across fresh volumes.
+  courier-compat:
+    image: postgis/postgis:16-3.5-alpine@sha256:47e961a569fd52ff31f0fe205ed91eeab17d9f5fff6722e6d7ea6b588748b293
+    profiles: ["channels", "full"]
+    depends_on:
+      rapidpro:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: "${POSTGRES_PASSWORD:-tembatemba}"
+    entrypoint: >
+      sh -c "psql -h postgres -U ${POSTGRES_USER:-temba} -d ${POSTGRES_DB:-temba} -v ON_ERROR_STOP=1 -c \"CREATE OR REPLACE VIEW users_user AS SELECT id, CASE WHEN username = 'system' THEN 'system' ELSE email END AS email, first_name, last_name, is_active FROM auth_user;\""
+    networks:
+      - rapidpro-data
+    restart: "no"
+
   courier:
+    # Channel I/O (Courier). Not required for the offline Surveyor path — run with
+    # `--profile channels` (or `full`) when messaging channels are needed.
+    profiles: ["channels", "full"]
     build:
       context: ./courier
       args:
         - COURIER_REF=v26.3.34
     depends_on:
+      courier-compat:
+        condition: service_completed_successfully
       rapidpro:
         condition: service_healthy
       postgres:
