@@ -2,7 +2,7 @@ name: surveyor-modern checks
 
 on:
   push:
-    branches: [surveyor-modern]
+    branches: [feature/LocalStack]
   pull_request:
   workflow_dispatch:
 
@@ -23,13 +23,10 @@ jobs:
           def args(svc):
               return dict(x.split('=', 1) for x in svcs[svc]['build']['args'])
 
-          def addl(svc):
-              return svcs[svc]['build'].get('additional_contexts') or {}
-
-          # RapidPro is built from the sibling UbuhingaVizion/rapidpro checkout
+          # RapidPro + mailroom are fetched at pinned fork tags at build time
           for svc in ('rapidpro', 'celery', 'celerybeat'):
-              assert addl(svc).get('rapidprosrc') == '../rapidpro', (svc, addl(svc))
-          assert addl('mailroom').get('mailroomsrc') == '../mailroom', addl('mailroom')
+              assert args(svc)['RAPIDPRO_REF'] == 'v9.0.0-ubuviz.1', args(svc)
+          assert args('mailroom')['MAILROOM_REF'] == 'v9.0.0-ubuviz.1', args('mailroom')
           assert args('courier')['COURIER_REF'] == 'v26.3.34', args('courier')
           assert args('indexer')['INDEXER_REF'] == 'v26.0.1', args('indexer')
           assert args('archiver')['ARCHIVER_REF'] == 'v26.0.1', args('archiver')

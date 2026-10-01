@@ -17,6 +17,11 @@ FROM node:20-bookworm-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d
 # ---- builder: venv + front-end assets ------------------------------------
 FROM python:3.12-slim-bookworm@sha256:392307d22300de8b5986851a12d9176dfc0fc073e65bf6523ebd7dcbeb23564e AS builder
 
+# RapidPro source is fetched at a pinned ref from the UbuhingaVizion fork.
+# v9.0.0-ubuviz.1 == branch modern @ 8a567d0d780e8a24789851cf8a5b3c3761bdf4a2
+ARG RAPIDPRO_REPO=UbuhingaVizion/rapidpro
+ARG RAPIDPRO_REF=v9.0.0-ubuviz.1
+
 # build deps only (dev headers, compilers). Tests upstream use libgdal-dev etc.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libgdal-dev gdal-bin \
@@ -26,7 +31,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libxml2-dev libxslt1-dev \
         libmagic1 \
         build-essential pkg-config \
-        curl ca-certificates \
+        curl ca-certificates git \
     && rm -rf /var/lib/apt/lists/*
 
 # node + npm from the official image (build-time only). The bundled `yarn` is a symlink into
@@ -39,9 +44,10 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
 
 WORKDIR /rapidpro
-# RapidPro source is the sibling UbuhingaVizion/rapidpro checkout, passed in as the
-# `rapidprosrc` additional build context (see docker-compose.yml).
-COPY --from=rapidprosrc . /rapidpro
+# RapidPro source is fetched at the pinned ref (no sibling checkout needed).
+RUN git clone --depth 1 --branch "${RAPIDPRO_REF}" \
+        "https://github.com/${RAPIDPRO_REPO}.git" /rapidpro \
+    && rm -rf /rapidpro/.git
 
 # Pin the venv to the base image interpreter (and never download a managed
 # Python) so the venv stays valid when copied into the runtime stage.

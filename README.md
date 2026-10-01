@@ -13,8 +13,8 @@ v9.0.0, Django 5.2), with the Go service versions chosen to match its schema. It
 
 | Service | Version | Why |
 |---|---|---|
-| RapidPro (webapp + celery) | fork `UbuhingaVizion/rapidpro` @ `modern` | RapidPro v9.0.0, Django 5.2, Python 3.12, uv-native, plain Django templates; Surveyor media/API kept |
-| Mailroom | sibling `../mailroom` (AGPL `UbuhingaVizion` fork of `rapidpro/mailroom`) | surveyor-capable; retains `POST /mr/surveyor/submit` (BSL `nyaruka/mailroom` removed it in `v9.1.10`) |
+| RapidPro (webapp + celery) | fork `UbuhingaVizion/rapidpro` @ `v9.0.0-ubuviz.1` | RapidPro v9.0.0, Django 5.2, Python 3.12, uv-native, plain Django templates; Surveyor media/API kept |
+| Mailroom | fork `UbuhingaVizion/mailroom` @ `v9.0.0-ubuviz.1` | surveyor-capable; retains `POST /mr/surveyor/submit` (BSL `nyaruka/mailroom` removed it in `v9.1.10`) |
 | Courier | `v26.3.34` (AGPL) | last AGPL Courier release (`v26.3.35`+ is BSL) |
 | rp-indexer | `v26.0.1` (AGPL) | matches the 9.0.0-era schema (ES7) |
 | rp-archiver | `v26.0.1` (AGPL) | archives old runs/messages to `temba-archives` (optional for Surveyor) |
@@ -22,7 +22,7 @@ v9.0.0, Django 5.2), with the Go service versions chosen to match its schema. It
 | PostgreSQL | `postgis/postgis:16-3.5-alpine` | matches RapidPro modern CI |
 | Redis | `7.2-alpine` | matches RapidPro modern CI |
 | SeaweedFS | `4.47` | S3-compatible object store for media/attachments |
-| nginx | latest | routes `/mr/` → mailroom |
+| nginx | `nginxinc/nginx-unprivileged:1.27-alpine` (digest-pinned) | routes `/mr/` → mailroom |
 
 ## Why this train
 
@@ -31,9 +31,8 @@ v9.0.0, Django 5.2), with the Go service versions chosen to match its schema. It
   `uv sync --frozen --no-dev` for reproducible builds.
 - Surveyor server support lives in **Mailroom**, not the web app. The AGPL **`rapidpro/mailroom`**
   keeps `/mr/surveyor/submit`; the BSL `nyaruka/mailroom` removed it in `v9.1.10`. We build from the
-  sibling `../mailroom` checkout (AGPL `UbuhingaVizion` fork), so the endpoint survives the v9
-  schema/Django 5.2 move. Expect it on the surveyor-capable `rapidpro/mailroom` `main` line
-  (currently `f5a17468`, the v9.0.0-era code).
+  AGPL `UbuhingaVizion/mailroom` fork (tag `v9.0.0-ubuviz.1`), so the endpoint survives the v9
+  schema/Django 5.2 move.
 - Courier/rp-indexer/rp-archiver are pinned to the newest **AGPL** releases of the 9.0.0 era
   (Courier `v26.3.34`, rp-indexer/rp-archiver `v26.0.1`); the later tags on each are BSL.
 
@@ -48,10 +47,9 @@ cp .env.example .env   # then edit .env (see Configuration below)
 docker compose up -d --build
 ```
 
-The build uses two sibling checkouts (compose additional build contexts): `../rapidpro`
-(`UbuhingaVizion/rapidpro` @ `modern`) as RapidPro's source, and `../mailroom`
-(`UbuhingaVizion/mailroom`, the AGPL surveyor-capable fork) as Mailroom's source. Both must sit next
-to this repo.
+RapidPro and Mailroom sources are **fetched at pinned fork tags at build time** (compose build args
+`RAPIDPRO_REF` / `MAILROOM_REF`), so no sibling checkouts are required — a fresh clone builds
+standalone (it does need network access to GitHub).
 
 The webapp is then at [http://localhost](http://localhost); create a test workspace at
 [http://localhost/org/signup](http://localhost/org/signup). For Surveyor to see an org, its flows
@@ -90,9 +88,9 @@ stack smoke test is run manually on a docker-capable host (see the script commen
 
 ## Build tooling
 
-- **RapidPro image** builds from the sibling `../rapidpro` checkout (UbuhingaVizion/rapidpro
-  `modern`) via the `rapidprosrc` additional build context, so it always uses the local source
-  (including uncommitted changes). This repo overlays `rapidpro/docker_settings.py` (copied
+- **RapidPro image** builds from the pinned fork tag `UbuhingaVizion/rapidpro@v9.0.0-ubuviz.1`
+  (branch `modern`), fetched with `git clone --branch` in the builder (compose build args
+  `RAPIDPRO_REPO`/`RAPIDPRO_REF`). This repo overlays `rapidpro/docker_settings.py` (copied
   to `temba/settings.py`) and `rapidpro/entrypoint.sh`. It is a **multi-stage build**: the builder
   carries the `-dev` headers/compilers and Node 20, runs `uv sync --frozen --no-dev` and
   `yarn install --frozen-lockfile --production` (RapidPro ships a yarn.lock); the runtime stage keeps
@@ -101,11 +99,11 @@ stack smoke test is run manually on a docker-capable host (see the script commen
   `{% compress %}` tags. The container starts as root only to fix the shared `sitestatic` volume,
   then drops to the unprivileged **`temba` (uid 1000)** user via `gosu`.
 - **Go services** build in `mailroom/`, `courier/`, `indexer/`, `archiver/`. Mailroom is compiled
-  from the sibling `../mailroom` checkout (AGPL surveyor-capable fork) with `golang:1.26`
-  (`CGO_ENABLED=0`, so static) and runs on **Alpine**. Courier/rp-indexer/rp-archiver use nyaruka's
-  pinned prebuilt AGPL release binaries, which are glibc-dynamic, so they run on
-  **`gcr.io/distroless/base-debian12`** (with a static busybox for the courier healthcheck). All four
-  run as non-root (`app`/`nonroot`).
+  from the pinned fork tag `UbuhingaVizion/mailroom@v9.0.0-ubuviz.1` (AGPL surveyor-capable fork)
+  with `golang:1.26` (`CGO_ENABLED=0`, so static) and runs on **Alpine**.
+  Courier/rp-indexer/rp-archiver use nyaruka's pinned prebuilt AGPL release binaries, which are
+  glibc-dynamic, so they run on **`gcr.io/distroless/base-debian12`** (with a static busybox for the
+  courier healthcheck). All four run as non-root (`app`/`nonroot`).
 - **Static files** (`/sitestatic/`) are produced by `collectstatic` into the shared `sitestatic`
   volume and served by **nginx** (not the object store, not whitenoise). nginx uses the
   `nginxinc/nginx-unprivileged` image (uid 101, listens on 8080 → host 80).

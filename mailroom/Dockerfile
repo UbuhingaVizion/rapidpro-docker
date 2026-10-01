@@ -1,15 +1,20 @@
 # syntax=docker/dockerfile:1
 
 # mailroom is built from source with CGO_ENABLED=0, so it is a static binary and
-# can run on the minimal Alpine runtime. The source is the sibling ../mailroom
-# checkout (AGPL UbuhingaVizion fork of rapidpro/mailroom), passed in as the
-# `mailroomsrc` additional build context. That fork retains the Surveyor
-# submission endpoint (POST /mr/surveyor/submit) which BSL nyaruka/mailroom
-# dropped in v9.1.10.
+# can run on the minimal Alpine runtime. The source is fetched at a pinned ref
+# from the AGPL UbuhingaVizion fork of rapidpro/mailroom; that fork retains the
+# Surveyor submission endpoint (POST /mr/surveyor/submit) which BSL
+# nyaruka/mailroom dropped in v9.1.10.
 FROM golang:1.26-bookworm@sha256:a688600ca24f8a4d3ca77f95b0dd40704a9fc787c826660eb7ba0b641b8b175d AS build
 
+# v9.0.0-ubuviz.1 == branch master @ f5a174684b8573d1fafc5df760c2abe8728efd10
+ARG MAILROOM_REPO=UbuhingaVizion/mailroom
+ARG MAILROOM_REF=v9.0.0-ubuviz.1
+
 WORKDIR /src
-COPY --from=mailroomsrc . /src
+RUN git clone --depth 1 --branch "${MAILROOM_REF}" \
+        "https://github.com/${MAILROOM_REPO}.git" /src \
+    && rm -rf /src/.git
 
 ENV CGO_ENABLED=0
 ENV GOPROXY=https://goproxy.io,direct

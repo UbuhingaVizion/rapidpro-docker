@@ -3,8 +3,8 @@
 ## What this repo is
 - Dev/test-only Docker Compose stack for a **Surveyor-capable** RapidPro (fork `UbuhingaVizion/rapidpro-docker`, branch `feature/LocalStack`). No application source here.
 - It pins a matched **RapidPro v9.0.0 / AGPL** service train. Surveyor support comes from the AGPL `rapidpro/mailroom` fork (the BSL `nyaruka/mailroom` removed `/mr/surveyor/submit` in v9.1.10); courier/rp-indexer/rp-archiver are pinned to their newest **AGPL** tags. Do not "upgrade" individual services.
-- RapidPro source is the sibling checkout `../rapidpro` (GitHub `UbuhingaVizion/rapidpro` @ `modern`): RapidPro v9.0.0, Django 5.2, Python 3.12, uv, plain Django templates, Surveyor kept. Its `AGENTS.md` is the source of truth for app-side coupling.
-- Mailroom source is the sibling checkout `../mailroom` (AGPL `UbuhingaVizion` fork of `rapidpro/mailroom`, surveyor-capable), wired in as the `mailroomsrc` build context.
+- RapidPro source is the fork `UbuhingaVizion/rapidpro` @ **`v9.0.0-ubuviz.1`** (branch `modern`): RapidPro v9.0.0, Django 5.2, Python 3.12, uv, plain Django templates, Surveyor kept. Its `AGENTS.md` is the source of truth for app-side coupling.
+- Mailroom source is the fork `UbuhingaVizion/mailroom` @ **`v9.0.0-ubuviz.1`** (branch `master`; AGPL, surveyor-capable). Both are fetched with `git clone --branch` at build time — no sibling checkouts.
 
 ## Commands
 - Build + start: `cp .env.example .env` then `docker compose up -d --build` (the only real build).
@@ -13,19 +13,19 @@
 - Surveyor gate (needs a running stack + a user with the Surveyor role):
   `RAPIDPRO_EMAIL=... RAPIDPRO_PASSWORD=... BASE_URL=http://localhost ./scripts/surveyor_gate.sh`
 - Reset state: `docker compose down -v` (volumes: `postgres`, `elastic`, `redis`, `seaweedfs`, `sitestatic`).
-- No unit/lint/typecheck suite. `.github/workflows/ci.yml` only runs `docker compose up -d` (after `cp .env.example .env`); do not invent more.
+- No unit/lint/typecheck suite. `.github/workflows/ci.yml` only does `cp .env.example .env` → `docker compose config -q` → `docker compose build courier indexer archiver` (the full stack build is too heavy for hosted runners); do not invent more.
 
 ## Version locks (move as one train)
-- RapidPro: the **sibling checkout `../rapidpro`** (GitHub `UbuhingaVizion/rapidpro` @ `modern`), wired in as the compose `rapidprosrc` additional build context.
-- Mailroom: the **sibling checkout `../mailroom`** (AGPL `UbuhingaVizion` fork of `rapidpro/mailroom`, surveyor-capable), wired in as the compose `mailroomsrc` additional build context. Expect the surveyor-capable `rapidpro/mailroom` `main` line (currently `f5a17468`, v9.0.0-era).
+- RapidPro: fork `UbuhingaVizion/rapidpro` @ **`v9.0.0-ubuviz.1`** (branch `modern`), set via compose build args `RAPIDPRO_REPO`/`RAPIDPRO_REF`.
+- Mailroom: fork `UbuhingaVizion/mailroom` @ **`v9.0.0-ubuviz.1`** (branch `master`; AGPL, surveyor-capable), set via compose build args `MAILROOM_REPO`/`MAILROOM_REF`. The Dockerfiles `git clone --branch` these tags at build time.
 - Courier `v26.3.34` (last AGPL), rp-indexer `v26.0.1` (AGPL), rp-archiver `v26.0.1` (AGPL).
 - Elasticsearch `7.17.9`, PostGIS `16-3.5-alpine`, Redis `7.2-alpine`, SeaweedFS `4.47`.
-- Pins are duplicated in `docker-compose.yml` build args/additional contexts, `.github/workflows/gate.yml` asserts, and the README table. Change all three together.
+- Pins are duplicated in `docker-compose.yml` build args, `.github/workflows/gate.yml` asserts, and the README table. Change all three together. Bumping a fork pin means creating+pushing a new tag first.
 - Base/service images are also **pinned by digest**: service digests in `docker-compose.yml`, build-stage digests in the Dockerfiles. Bump deliberately.
-- Go builds: `mailroom` compiles from the sibling `../mailroom` checkout (AGPL fork that keeps Surveyor) with `golang:1.26` (`CGO_ENABLED=0` → static, runs on `alpine:3.20`); `courier`/`indexer`/`archiver` download prebuilt release binaries, which are glibc-dynamic, so they run on `gcr.io/distroless/base-debian12` (not Alpine).
+- Go builds: `mailroom` compiles from the pinned fork tag with `golang:1.26` (`CGO_ENABLED=0` → static, runs on `alpine:3.20`); `courier`/`indexer`/`archiver` download prebuilt release binaries, which are glibc-dynamic, so they run on `gcr.io/distroless/base-debian12` (not Alpine).
 
 ## Architecture / gotchas
-- `rapidpro`, `celery`, `celerybeat` build the *same* image from `./rapidpro/`, which pulls the source from the sibling `../rapidpro` checkout via the `rapidprosrc` additional build context; `command` selects `webapp`/`worker`/`beat` (`rapidpro/entrypoint.sh`). Webapp runs `migrate` + `collectstatic --clear` then gunicorn. `rapidpro/docker_settings.py` is copied in as `temba/settings.py`.
+- `rapidpro`, `celery`, `celerybeat` build the *same* image from `./rapidpro/`, which pulls the source from the pinned fork tag via `git clone --branch` (see the Dockerfile / compose args); `command` selects `webapp`/`worker`/`beat` (`rapidpro/entrypoint.sh`). Webapp runs `migrate` + `collectstatic --clear` then gunicorn. `rapidpro/docker_settings.py` is copied in as `temba/settings.py`.
 - **Redis DB 15 must match everywhere**: Django, mailroom, courier all use `redis://redis:6379/15`. Change one and mailroom batch jobs silently never run.
 - nginx runs as the **unprivileged** image (uid 101) and listens on **8080**; it serves `/sitestatic/` from the `sitestatic` volume, proxies `/media/` → `seaweedfs:8333` `temba-attachments` bucket, routes `/`→rapidpro:8000 and `/c/`→courier:8080, and **only** proxies `POST /mr/surveyor/submit` to mailroom (all other `/mr/*` → 403). It also sets base security headers, rate-limits auth/surveyor/courier paths, and recovers real client IP from `X-Forwarded-For` (`nginx/default.conf`).
 - **Network topology:** `rapidpro-data` (`internal: true`, subnet `172.29.0.0/16`) holds postgres/redis/elastic/seaweedfs/indexer/archiver; app services (rapidpro/celery/celerybeat/mailroom/courier) and nginx are dual-homed on `rapidpro-data` + `rapidpro-app` (`172.28.0.0/16`, egress). Data stores publish no host ports.

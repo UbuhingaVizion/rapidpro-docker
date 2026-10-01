@@ -146,8 +146,9 @@ services:
   rapidpro:
     build:
       context: ./rapidpro/
-      additional_contexts:
-        rapidprosrc: ../rapidpro
+      args:
+        - RAPIDPRO_REPO=UbuhingaVizion/rapidpro
+        - RAPIDPRO_REF=v9.0.0-ubuviz.1
     command: ["webapp"]
     depends_on:
       postgres:
@@ -181,8 +182,9 @@ services:
   celery:
     build:
       context: ./rapidpro/
-      additional_contexts:
-        rapidprosrc: ../rapidpro
+      args:
+        - RAPIDPRO_REPO=UbuhingaVizion/rapidpro
+        - RAPIDPRO_REF=v9.0.0-ubuviz.1
     command: ["worker"]
     restart: unless-stopped
     depends_on:
@@ -199,8 +201,9 @@ services:
   celerybeat:
     build:
       context: ./rapidpro/
-      additional_contexts:
-        rapidprosrc: ../rapidpro
+      args:
+        - RAPIDPRO_REPO=UbuhingaVizion/rapidpro
+        - RAPIDPRO_REF=v9.0.0-ubuviz.1
     command: ["beat"]
     restart: unless-stopped
     depends_on:
@@ -217,8 +220,9 @@ services:
   mailroom:
     build:
       context: ./mailroom/
-      additional_contexts:
-        mailroomsrc: ../mailroom
+      args:
+        - MAILROOM_REPO=UbuhingaVizion/mailroom
+        - MAILROOM_REF=v9.0.0-ubuviz.1
     depends_on:
       postgres:
         condition: service_healthy

@@ -1,8 +1,8 @@
 name: CI
 on: [push, pull_request]
 jobs:
-  test:
-    name: Test
+  validate:
+    name: Validate
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -11,5 +11,11 @@ jobs:
       - name: Prepare .env
         run: cp .env.example .env
 
-      - name: Run docker compose
-        run: docker compose up -d
+      - name: Validate compose config
+        run: docker compose config -q
+
+      # Build the images that don't depend on the pinned RapidPro/Mailroom sources
+      # (fast; downloads the pinned upstream release binaries). The full stack
+      # build + surveyor_gate.sh is documented in gate.yml as a manual step.
+      - name: Build lightweight service images
+        run: docker compose build courier indexer archiver
