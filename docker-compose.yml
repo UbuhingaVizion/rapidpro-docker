@@ -160,8 +160,8 @@ services:
         condition: service_completed_successfully
       mailroom:
         condition: service_healthy
-      courier:
-        condition: service_healthy
+      # NOTE: courier is intentionally NOT a dependency here — it needs the DB schema (system user),
+      # so it instead waits for rapidpro to finish migrating + become healthy (see `courier` below).
     ports:
       - "${RAPIDPRO_BIND:-127.0.0.1}:${RAPIDPRO_HTTP_PORT:-8000}:8000"
     environment:
@@ -237,7 +237,8 @@ services:
       MAILROOM_ELASTIC: "${ELASTICSEARCH_URL:-http://elastic:9200}"
       MAILROOM_DOMAIN: "${MAILROOM_DOMAIN:-host.docker.internal}"
       MAILROOM_ATTACHMENT_DOMAIN: "${MAILROOM_ATTACHMENT_DOMAIN:-host.docker.internal}"
-      MAILROOM_DISALLOWED_NETWORKS: "6.6.6.6"
+      # NOTE: do NOT override MAILROOM_DISALLOWED_NETWORKS — mailroom's secure default blocks
+      # loopback/link-local/RFC1918/cloud-metadata, preventing flow-webhook SSRF to internal services.
       MAILROOM_AUTH_TOKEN: "${MAILROOM_AUTH_TOKEN:-}"
       MAILROOM_AWS_ACCESS_KEY_ID: "${S3_ACCESS_KEY:-root}"
       MAILROOM_AWS_SECRET_ACCESS_KEY: "${S3_SECRET_KEY:-tembatemba}"
@@ -265,6 +266,8 @@ services:
       args:
         - COURIER_REF=v26.3.34
     depends_on:
+      rapidpro:
+        condition: service_healthy
       postgres:
         condition: service_healthy
       redis:
@@ -281,7 +284,8 @@ services:
       # courier v26 renamed Redis->Valkey and requires the valkey:// URL scheme
       COURIER_VALKEY: "${COURIER_VALKEY:-valkey://redis:6379/15}"
       COURIER_DOMAIN: "${COURIER_DOMAIN:-host.docker.internal}"
-      COURIER_DISALLOWED_NETWORKS: "6.6.6.6"
+      # NOTE: do NOT override COURIER_DISALLOWED_NETWORKS — keep courier's secure default (blocks
+      # loopback/link-local/RFC1918/cloud-metadata) so channel handlers can't be SSRF'd internally.
       # courier v26 reads credentials/region from the AWS SDK default chain
       AWS_ACCESS_KEY_ID: "${S3_ACCESS_KEY:-root}"
       AWS_SECRET_ACCESS_KEY: "${S3_SECRET_KEY:-tembatemba}"

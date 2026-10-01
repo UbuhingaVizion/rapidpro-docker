@@ -46,8 +46,9 @@ CSRF_COOKIE_SECURE = True
 CSRF_COOKIE_SAMESITE = "Strict"
 SECURE_SSL_REDIRECT = True
 
-SECURE_HSTS_SECONDS = 0
-SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+# TLS terminates at the ngrok edge, which does not add HSTS, so enforce it here on Django responses.
+SECURE_HSTS_SECONDS = 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = False
 
 # X-Frame-Options is set by nginx; Django 5.2's clickjacking middleware requires
@@ -96,10 +97,12 @@ CELERY_BROKER_URL = REDIS_URL
 # -----------------------------------------------------------------------------------
 INSTALLED_APPS = INSTALLED_APPS + ("storages",)
 
-# Django 5.1+ replaced DEFAULT_FILE_STORAGE/STATICFILES_STORAGE with the STORAGES dict.
+# Django 5.1+ replaced DEFAULT_FILE_STORAGE/STATICFILES_STORAGE with the STORAGES dict. Keep the
+# inherited "archives"/"logs"/"staticfiles" entries and route file/media storage to SeaweedFS (S3).
 STORAGES = {
+    **STORAGES,
     "default": {"BACKEND": "storages.backends.s3boto3.S3Boto3Storage"},
-    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    "public": {"BACKEND": "storages.backends.s3boto3.S3Boto3Storage"},
 }
 
 AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID", "root")

@@ -29,8 +29,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# node + npm from the official image (build-time only)
+# node + npm from the official image (build-time only). The bundled `yarn` is a symlink into
+# /opt/yarn-v1.22.22, so bring that across too or the symlink dangles (exit 127).
 COPY --from=node /usr/local /usr/local
+COPY --from=node /opt/yarn-v1.22.22 /opt/yarn-v1.22.22
 
 # install uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -52,9 +54,8 @@ RUN uv sync --frozen --no-dev
 
 # front-end assets (flow-editor, temba-components) are copied out of node_modules
 # by collectstatic; dev-only deps (tailwind/postcss/bower) aren't needed. RapidPro
-# ships a yarn.lock (classic), so install with yarn rather than npm.
-RUN npm install -g yarn@1.22.22 \
-    && yarn install --frozen-lockfile --production --non-interactive
+# ships a classic yarn.lock and the node image already bundles yarn (v1), so use it.
+RUN yarn install --frozen-lockfile --production --non-interactive
 
 # modern less compiler for django-compressor's {% compress %} tags (the pinned
 # package.json less@2.7.1 can't parse modern CSS; upstream installs it globally).
