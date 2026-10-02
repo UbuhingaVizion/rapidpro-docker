@@ -2,7 +2,7 @@
 # Docker settings for the surveyor-modern RapidPro stack.
 #
 # Derived from RapidPro's own temba/settings.py.dev, but wired to the docker compose
-# service names (postgres/redis/minio/mailroom) and environment variables.
+# service names (postgres/redis/seaweedfs/mailroom) and environment variables.
 # -----------------------------------------------------------------------------------
 
 import warnings
@@ -30,6 +30,37 @@ CSRF_TRUSTED_ORIGINS = [
         "DJANGO_CSRF_TRUSTED_ORIGINS", "https://*.ngrok-free.app,https://app.ubuviz.com"
     ).split(",")
     if o.strip()
+]
+
+# -----------------------------------------------------------------------------------
+# HTTPS / cookie / password hardening.
+#
+# TLS terminates at the host edge, which forwards X-Forwarded-Proto: https (the
+# lowercase SECURE_PROXY_SSL_HEADER above is what Django checks). HSTS is set at
+# the edge, so SECURE_HSTS_SECONDS stays 0 here to avoid duplicate headers. The
+# base security headers (X-Frame-Options/X-Content-Type-Options/Referrer-Policy)
+# are owned by nginx, so Django's copies are disabled to avoid conflicts.
+# -----------------------------------------------------------------------------------
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = "Strict"
+SECURE_SSL_REDIRECT = True
+
+# TLS terminates at the ngrok edge, which does not add HSTS, so enforce it here on Django responses.
+SECURE_HSTS_SECONDS = 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = False
+
+# X-Frame-Options is set by nginx; Django 5.2's clickjacking middleware requires
+# a string value, so drop the middleware rather than duplicate/conflict.
+SECURE_CONTENT_TYPE_NOSNIFF = False
+SECURE_REFERRER_POLICY = None
+
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 8}},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
 INTERNAL_IPS = ("127.0.0.1",)
@@ -62,37 +93,47 @@ CACHES = {
 CELERY_BROKER_URL = REDIS_URL
 
 # -----------------------------------------------------------------------------------
-# Media storage on MinIO (S3-compatible). Used by org.save_media() for Surveyor uploads.
+# Media storage on SeaweedFS (S3-compatible). Used by org.save_media() for Surveyor uploads.
 # -----------------------------------------------------------------------------------
 INSTALLED_APPS = INSTALLED_APPS + ("storages",)
 
-DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+# Django 5.1+ replaced DEFAULT_FILE_STORAGE/STATICFILES_STORAGE with the STORAGES dict. Keep the
+# inherited "archives"/"logs"/"staticfiles" entries and route file/media storage to SeaweedFS (S3).
+STORAGES = {
+    **STORAGES,
+    "default": {"BACKEND": "storages.backends.s3boto3.S3Boto3Storage"},
+    "public": {"BACKEND": "storages.backends.s3boto3.S3Boto3Storage"},
+}
+
 AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID", "root")
 AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY", "tembatemba")
-AWS_STORAGE_BUCKET_NAME = os.environ.get("AWS_STORAGE_BUCKET_NAME", "temba-archives")
-AWS_S3_ENDPOINT_URL = os.environ.get("AWS_S3_ENDPOINT_URL", "http://minio:9000")
+AWS_STORAGE_BUCKET_NAME = os.environ.get("AWS_STORAGE_BUCKET_NAME", "temba-attachments")
+AWS_S3_ENDPOINT_URL = os.environ.get("AWS_S3_ENDPOINT_URL", "http://seaweedfs:8333")
 AWS_S3_REGION_NAME = os.environ.get("AWS_S3_REGION_NAME", "us-east-1")
 AWS_S3_USE_SSL = os.environ.get("AWS_S3_USE_SSL", "false").lower() in ("1", "true", "yes")
 AWS_S3_ADDRESSING_STYLE = "path"
-# MinIO buckets are made public via `mc` in the compose bucket-init service rather than
-# per-object ACLs.
+# The temba-attachments (media) bucket is made public via a bucket policy set by the
+# compose seaweedfs-init service rather than per-object ACLs.
 AWS_DEFAULT_ACL = None
 
-STORAGE_URL = os.environ.get("STORAGE_URL", "http://localhost:9000/temba-archives")
+STORAGE_URL = os.environ.get("STORAGE_URL", "http://localhost/media")
 
 # bucket where rp-archiver writes archives and the webapp reads them from
 ARCHIVE_BUCKET = os.environ.get("ARCHIVE_BUCKET", "temba-archives")
 
 # -----------------------------------------------------------------------------------
-# Mailroom - docker service, no auth token
+# Mailroom - docker service. Set MAILROOM_AUTH_TOKEN (and the same value on the
+# mailroom container) to require a shared token on requests.
 # -----------------------------------------------------------------------------------
 MAILROOM_URL = os.environ.get("MAILROOM_URL", "http://mailroom:8090")
-MAILROOM_AUTH_TOKEN = None
+MAILROOM_AUTH_TOKEN = os.environ.get("MAILROOM_AUTH_TOKEN") or None
 
 # -----------------------------------------------------------------------------------
 # In development, add in extra logging for exceptions and the debug toolbar
 # -----------------------------------------------------------------------------------
-MIDDLEWARE = ("temba.middleware.ExceptionMiddleware",) + MIDDLEWARE
+MIDDLEWARE = ("temba.middleware.ExceptionMiddleware",) + tuple(
+    m for m in MIDDLEWARE if m != "django.middleware.clickjacking.XFrameOptionsMiddleware"
+)
 
 # -----------------------------------------------------------------------------------
 # Background tasks are run by the celery container, not the web thread

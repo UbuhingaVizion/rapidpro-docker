@@ -2,7 +2,7 @@ name: surveyor-modern checks
 
 on:
   push:
-    branches: [surveyor-modern]
+    branches: [feature/LocalStack]
   pull_request:
   workflow_dispatch:
 
@@ -23,14 +23,14 @@ jobs:
           def args(svc):
               return dict(x.split('=', 1) for x in svcs[svc]['build']['args'])
 
-          rp = args('rapidpro')
-          assert rp['RAPIDPRO_REPO'] == 'UbuhingaVizion/rapidpro', rp
-          assert rp['RAPIDPRO_TAG'] == 'develop', rp
-          assert args('mailroom')['MAILROOM_REF'] == 'v7.5.13', args('mailroom')
-          assert args('courier')['COURIER_REF'] == 'v7.5.13', args('courier')
-          assert args('indexer')['INDEXER_REF'] == 'v7.4.0', args('indexer')
-          assert args('archiver')['ARCHIVER_REF'] == 'v7.5.0', args('archiver')
-          assert svcs['elastic']['image'] == 'elasticsearch:7.17.9', svcs['elastic']['image']
+          # RapidPro + mailroom are fetched at pinned fork tags at build time
+          for svc in ('rapidpro', 'celery', 'celerybeat'):
+              assert args(svc)['RAPIDPRO_REF'] == 'v9.0.0-ubuviz.1', args(svc)
+          assert args('mailroom')['MAILROOM_REF'] == 'v9.0.0-ubuviz.1', args('mailroom')
+          assert args('courier')['COURIER_REF'] == 'v26.3.34', args('courier')
+          assert args('indexer')['INDEXER_REF'] == 'v26.0.1', args('indexer')
+          assert args('archiver')['ARCHIVER_REF'] == 'v26.0.1', args('archiver')
+          assert 'elasticsearch:7.17.9' in svcs['elastic']['image'], svcs['elastic']['image']
           assert '16-3.5-alpine' in svcs['postgres']['image'], svcs['postgres']['image']
           assert '7.2-alpine' in svcs['redis']['image'], svcs['redis']['image']
           print('rapidpro-docker version locks OK')
@@ -40,9 +40,8 @@ jobs:
         run: bash -n scripts/surveyor_gate.sh
 
   # Full stack smoke test (docker compose build + up + surveyor_gate.sh).
-  # Deliberately manual: it builds RapidPro develop (uv) plus Mailroom/Courier
-  # v7.5.13 and rp-indexer v7.4.0 from source, which exceeds comfortable
-  # standard-runner times. Trigger from a docker-capable runner (self-hosted) or
-  # run locally:
+  # Deliberately manual: it builds RapidPro modern (uv) plus AGPL rapidpro/mailroom
+  # v9.0.0 from source, which exceeds comfortable standard-runner times. Trigger
+  # from a docker-capable runner (self-hosted) or run locally:
   #   docker compose up -d --build
   #   RAPIDPRO_EMAIL=... RAPIDPRO_PASSWORD=... BASE_URL=http://localhost ./scripts/surveyor_gate.sh

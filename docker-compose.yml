@@ -1,93 +1,146 @@
 name: rapidpro
+
+# ---------------------------------------------------------------------------
+# Configuration comes from (highest precedence first):
+#   1. the host environment (e.g. exported from /etc/default/environment, or
+#      passed via COMPOSE_ENV_FILES=.env,/etc/default/environment)
+#   2. the project .env file (gitignored - see .env.example)
+#   3. the defaults below
+#
+# The internal service hostnames (postgres, redis, elastic, seaweedfs, mailroom,
+# courier) and bucket names are part of the stack topology and are NOT meant to
+# be changed via env.
+# ---------------------------------------------------------------------------
+
+# Shared by rapidpro / celery / celerybeat
+x-rapidpro-env: &rapidpro-env
+  MAILROOM_URL: "${MAILROOM_URL:-http://mailroom:8090}"
+  MAILROOM_AUTH_TOKEN: "${MAILROOM_AUTH_TOKEN:-}"
+  DJANGO_SETTINGS_MODULE: "temba.settings"
+  DJANGO_SECRET_KEY: "${DJANGO_SECRET_KEY:-a-secret-key-change-me}"
+  DATABASE_URL: "postgis://${POSTGRES_USER:-temba}:${POSTGRES_PASSWORD:-tembatemba}@postgres:5432/${POSTGRES_DB:-temba}"
+  REMOTE_CONTAINERS: "true"
+  REDIS_URL: "${REDIS_URL:-redis://redis:6379/15}"
+  ELASTICSEARCH_URL: "${ELASTICSEARCH_URL:-http://elastic:9200}"
+  AWS_ACCESS_KEY_ID: "${S3_ACCESS_KEY:-root}"
+  AWS_SECRET_ACCESS_KEY: "${S3_SECRET_KEY:-tembatemba}"
+  AWS_S3_ENDPOINT_URL: "${S3_ENDPOINT_URL:-http://seaweedfs:8333}"
+  AWS_STORAGE_BUCKET_NAME: "temba-attachments"
+  AWS_S3_REGION_NAME: "${S3_REGION:-us-east-1}"
+  AWS_S3_USE_SSL: "false"
+  AWS_ENDPOINT_URL: "${S3_ENDPOINT_URL:-http://seaweedfs:8333}"
+  # botocore >=1.36 sends checksums by default which some S3-compatible servers
+  # reject on multipart uploads ("request has multiple authentication types")
+  AWS_REQUEST_CHECKSUM_CALCULATION: "when_required"
+  AWS_RESPONSE_CHECKSUM_VALIDATION: "when_required"
+  STORAGE_URL: "${STORAGE_URL:-http://localhost/media}"
+  DJANGO_ALLOWED_HOSTS: "${DJANGO_ALLOWED_HOSTS:-*}"
+  DJANGO_SECURE_PROXY_SSL_HEADER: "${DJANGO_SECURE_PROXY_SSL_HEADER:-HTTP_X_FORWARDED_PROTO,https}"
+  DJANGO_CSRF_TRUSTED_ORIGINS: "${DJANGO_CSRF_TRUSTED_ORIGINS:-https://*.ngrok-free.app,https://app.ubuviz.com}"
+
 services:
   nginx:
-    image: nginx
+    # unprivileged variant runs as uid 101 and listens on 8080
+    image: nginxinc/nginx-unprivileged:1.27-alpine@sha256:65e3e85dbaed8ba248841d9d58a899b6197106c23cb0ff1a132b7bfe0547e4c0
     volumes:
-      - "./nginx/default.conf:/etc/nginx/conf.d/default.conf"
+      - "./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro"
       - sitestatic:/sitestatic:ro
     ports:
-      - 80:80
+      - "${NGINX_BIND:-127.0.0.1}:${NGINX_HTTP_PORT:-80}:8080"
+    networks:
+      - rapidpro-app
+      - rapidpro-data
     depends_on:
       rapidpro:
         condition: service_healthy
 
   postgres:
-    image: postgis/postgis:16-3.5-alpine # matches RapidPro develop CI
+    image: postgis/postgis:16-3.5-alpine@sha256:47e961a569fd52ff31f0fe205ed91eeab17d9f5fff6722e6d7ea6b588748b293 # matches RapidPro modern CI
     volumes:
       - postgres:/var/lib/postgresql/data
-    ports:
-      - 5432:5432
+    networks:
+      - rapidpro-data
     environment:
-      - POSTGRES_USER=temba
-      - POSTGRES_DB=temba
-      - POSTGRES_PASSWORD=tembatemba
+      POSTGRES_USER: "${POSTGRES_USER:-temba}"
+      POSTGRES_DB: "${POSTGRES_DB:-temba}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-tembatemba}"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-temba} -d ${POSTGRES_DB:-temba}"]
       interval: 10s
       timeout: 5s
 
   elastic:
-    image: elasticsearch:7.17.9
+    image: elasticsearch:7.17.9@sha256:e04ffd9739aa018693acb752f13c5791d15185a8c48e18a0ebd7055d1a203291
     volumes:
       - elastic:/usr/share/elasticsearch/data
-    ports:
-      - 9200:9200
+    networks:
+      - rapidpro-data
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
       - ingest.geoip.downloader.enabled=false
-      - logger.level=INFO
+      - logger.level=${ELASTIC_LOG_LEVEL:-INFO}
     healthcheck:
       test: curl -s http://localhost:9200 >/dev/null || exit 1
       interval: 10s
       timeout: 5s
 
   redis:
-    image: redis:7.2-alpine
-    command: redis-server --save 60 1 --loglevel warning
+    image: redis:7.2-alpine@sha256:29e8589c3f9ba699b5f7aa4b3c7733c58852a3626439e619aa0ee78de08c6ca0
+    command: redis-server --save 60 1 --loglevel ${REDIS_LOG_LEVEL:-warning}
     volumes:
       - redis:/data
-    ports:
-      - 6379:6379
+    networks:
+      - rapidpro-data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 2s
 
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
-    ports:
-      - 9000:9000
-      - 9001:9001
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882
+    command: >
+      server -s3 -dir=/data -ip.bind=0.0.0.0
+      -s3.config=/etc/seaweedfs/s3.json
+      -master.volumeSizeLimitMB=1024
     volumes:
-      - minio:/data
-    environment:
-      - MINIO_ROOT_USER=root
-      - MINIO_ROOT_PASSWORD=tembatemba
+      - seaweedfs:/data
+      - ./seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+    networks:
+      - rapidpro-data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9333/cluster/status >/dev/null || exit 1"]
       interval: 5s
-      timeout: 2s
-      retries: 5
+      timeout: 3s
+      retries: 10
 
   # one-shot: create the buckets RapidPro/Mailroom/Courier expect and make the media
-  # bucket publicly readable (Surveyor downloads media by URL)
-  minio-init:
-    image: minio/mc:latest
+  # bucket publicly readable (Surveyor downloads media by URL). The SeaweedFS S3 port
+  # is intentionally not published; nginx proxies /media/ to it.
+  seaweedfs-init:
+    image: amazon/aws-cli:latest@sha256:82905aa8fdab6e2403b40dceec12dc33aea2535a4c2a6f13d596d98501951105
     depends_on:
-      minio:
+      seaweedfs:
         condition: service_healthy
+    environment:
+      - AWS_ACCESS_KEY_ID=${S3_ACCESS_KEY:-root}
+      - AWS_SECRET_ACCESS_KEY=${S3_SECRET_KEY:-tembatemba}
+      - AWS_DEFAULT_REGION=${S3_REGION:-us-east-1}
+      - AWS_EC2_METADATA_DISABLED=true
     entrypoint: >
       /bin/sh -c "
-      until mc alias set local http://minio:9000 root tembatemba >/dev/null 2>&1; do sleep 1; done;
-      mc mb --ignore-existing local/temba-archives;
-      mc mb --ignore-existing local/temba-attachments;
-      mc mb --ignore-existing local/temba-logs;
-      mc mb --ignore-existing local/temba-sessions;
-      mc anonymous set download local/temba-archives;
+      until aws --endpoint-url http://seaweedfs:8333 s3 ls >/dev/null 2>&1; do sleep 1; done;
+      aws --endpoint-url http://seaweedfs:8333 s3 mb s3://temba-archives || true;
+      aws --endpoint-url http://seaweedfs:8333 s3 mb s3://temba-attachments || true;
+      aws --endpoint-url http://seaweedfs:8333 s3 mb s3://temba-logs || true;
+      aws --endpoint-url http://seaweedfs:8333 s3 mb s3://temba-sessions || true;
+      aws --endpoint-url http://seaweedfs:8333 s3api put-bucket-policy --bucket temba-attachments --policy file:///policy/public-read-policy.json;
       exit 0;
       "
+    volumes:
+      - ./seaweedfs:/policy:ro
+    networks:
+      - rapidpro-data
     restart: "no"
 
   rapidpro:
@@ -95,7 +148,7 @@ services:
       context: ./rapidpro/
       args:
         - RAPIDPRO_REPO=UbuhingaVizion/rapidpro
-        - RAPIDPRO_TAG=develop
+        - RAPIDPRO_REF=v9.0.0-ubuviz.1
     command: ["webapp"]
     depends_on:
       postgres:
@@ -104,39 +157,21 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio-init:
+      seaweedfs-init:
         condition: service_completed_successfully
       mailroom:
         condition: service_healthy
-      courier:
-        condition: service_healthy
+      # NOTE: courier is intentionally NOT a dependency here — it needs the DB schema (system user),
+      # so it instead waits for rapidpro to finish migrating + become healthy (see `courier` below).
     ports:
-      - 8000:8000
+      - "${RAPIDPRO_BIND:-127.0.0.1}:${RAPIDPRO_HTTP_PORT:-8000}:8000"
     environment:
-      - MAILROOM_URL=http://mailroom:8090
-      - DJANGO_SETTINGS_MODULE=temba.settings
-      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-a-secret-key-change-me}
-      - DATABASE_URL=postgis://temba:tembatemba@postgres:5432/temba
-      - REMOTE_CONTAINERS=true
-      - REDIS_URL=redis://redis:6379/15
-      - ELASTICSEARCH_URL=http://elastic:9200
-      - AWS_ACCESS_KEY_ID=root
-      - AWS_SECRET_ACCESS_KEY=tembatemba
-      - AWS_S3_ENDPOINT_URL=http://minio:9000
-      - AWS_STORAGE_BUCKET_NAME=temba-archives
-      - AWS_S3_REGION_NAME=us-east-1
-      - AWS_S3_USE_SSL=false
-      - AWS_ENDPOINT_URL=http://minio:9000
-      # botocore >=1.36 sends checksums by default which MinIO rejects on multipart
-      # uploads ("request has multiple authentication types") - restore legacy behaviour
-      - AWS_REQUEST_CHECKSUM_CALCULATION=when_required
-      - AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
-      - STORAGE_URL=${STORAGE_URL:-http://localhost/media}
-      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-*}
-      - DJANGO_SECURE_PROXY_SSL_HEADER=HTTP_X_FORWARDED_PROTO,https
-      - DJANGO_CSRF_TRUSTED_ORIGINS=${DJANGO_CSRF_TRUSTED_ORIGINS:-https://*.ngrok-free.app,https://app.ubuviz.com}
+      <<: *rapidpro-env
     volumes:
       - sitestatic:/rapidpro/sitestatic
+    networks:
+      - rapidpro-app
+      - rapidpro-data
     healthcheck:
       test: curl -s http://localhost:8000 >/dev/null || exit 1
       interval: 15s
@@ -149,80 +184,45 @@ services:
       context: ./rapidpro/
       args:
         - RAPIDPRO_REPO=UbuhingaVizion/rapidpro
-        - RAPIDPRO_TAG=develop
+        - RAPIDPRO_REF=v9.0.0-ubuviz.1
     command: ["worker"]
     restart: unless-stopped
     depends_on:
       rapidpro:
         condition: service_healthy
-      minio-init:
+      seaweedfs-init:
         condition: service_completed_successfully
     environment:
-      - MAILROOM_URL=http://mailroom:8090
-      - REMOTE_CONTAINERS=true
-      - DJANGO_SETTINGS_MODULE=temba.settings
-      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-a-secret-key-change-me}
-      - DATABASE_URL=postgis://temba:tembatemba@postgres:5432/temba
-      - REDIS_URL=redis://redis:6379/15
-      - ELASTICSEARCH_URL=http://elastic:9200
-      - AWS_ACCESS_KEY_ID=root
-      - AWS_SECRET_ACCESS_KEY=tembatemba
-      - AWS_S3_ENDPOINT_URL=http://minio:9000
-      - AWS_STORAGE_BUCKET_NAME=temba-archives
-      - AWS_S3_REGION_NAME=us-east-1
-      - AWS_S3_USE_SSL=false
-      - AWS_ENDPOINT_URL=http://minio:9000
-      # botocore >=1.36 sends checksums by default which MinIO rejects on multipart
-      # uploads ("request has multiple authentication types") - restore legacy behaviour
-      - AWS_REQUEST_CHECKSUM_CALCULATION=when_required
-      - AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
-      - STORAGE_URL=${STORAGE_URL:-http://localhost/media}
-      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-*}
-      - DJANGO_SECURE_PROXY_SSL_HEADER=HTTP_X_FORWARDED_PROTO,https
-      - DJANGO_CSRF_TRUSTED_ORIGINS=${DJANGO_CSRF_TRUSTED_ORIGINS:-https://*.ngrok-free.app,https://app.ubuviz.com}
+      <<: *rapidpro-env
+    networks:
+      - rapidpro-app
+      - rapidpro-data
 
   celerybeat:
     build:
       context: ./rapidpro/
       args:
         - RAPIDPRO_REPO=UbuhingaVizion/rapidpro
-        - RAPIDPRO_TAG=develop
+        - RAPIDPRO_REF=v9.0.0-ubuviz.1
     command: ["beat"]
     restart: unless-stopped
     depends_on:
       rapidpro:
         condition: service_healthy
-      minio-init:
+      seaweedfs-init:
         condition: service_completed_successfully
     environment:
-      - MAILROOM_URL=http://mailroom:8090
-      - REMOTE_CONTAINERS=true
-      - DJANGO_SETTINGS_MODULE=temba.settings
-      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-a-secret-key-change-me}
-      - DATABASE_URL=postgis://temba:tembatemba@postgres:5432/temba
-      - REDIS_URL=redis://redis:6379/15
-      - ELASTICSEARCH_URL=http://elastic:9200
-      - AWS_ACCESS_KEY_ID=root
-      - AWS_SECRET_ACCESS_KEY=tembatemba
-      - AWS_S3_ENDPOINT_URL=http://minio:9000
-      - AWS_STORAGE_BUCKET_NAME=temba-archives
-      - AWS_S3_REGION_NAME=us-east-1
-      - AWS_S3_USE_SSL=false
-      - AWS_ENDPOINT_URL=http://minio:9000
-      # botocore >=1.36 sends checksums by default which MinIO rejects on multipart
-      # uploads ("request has multiple authentication types") - restore legacy behaviour
-      - AWS_REQUEST_CHECKSUM_CALCULATION=when_required
-      - AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
-      - STORAGE_URL=${STORAGE_URL:-http://localhost/media}
-      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-*}
-      - DJANGO_SECURE_PROXY_SSL_HEADER=HTTP_X_FORWARDED_PROTO,https
-      - DJANGO_CSRF_TRUSTED_ORIGINS=${DJANGO_CSRF_TRUSTED_ORIGINS:-https://*.ngrok-free.app,https://app.ubuviz.com}
+      <<: *rapidpro-env
+    networks:
+      - rapidpro-app
+      - rapidpro-data
 
   mailroom:
     build:
-      context: ./mailroom
+      context: ./mailroom/
       args:
-        - MAILROOM_REF=v7.5.13
+        - MAILROOM_REPO=UbuhingaVizion/mailroom
+        - MAILROOM_REF=v9.0.0-ubuviz.1
     depends_on:
       postgres:
         condition: service_healthy
@@ -230,27 +230,33 @@ services:
         condition: service_healthy
       elastic:
         condition: service_healthy
-      minio-init:
+      seaweedfs-init:
         condition: service_completed_successfully
     ports:
-      - 8090:8090
+      - "${MAILROOM_BIND:-127.0.0.1}:${MAILROOM_HTTP_PORT:-8090}:8090"
     environment:
-      - MAILROOM_ADDRESS=0.0.0.0
-      - MAILROOM_DB=postgres://temba:tembatemba@postgres:5432/temba?sslmode=disable
-      - MAILROOM_REDIS=redis://redis:6379/15
-      - MAILROOM_ELASTIC=http://elastic:9200
-      - MAILROOM_DOMAIN=${MAILROOM_DOMAIN:-host.docker.internal}
-      - MAILROOM_ATTACHMENT_DOMAIN=${MAILROOM_ATTACHMENT_DOMAIN:-host.docker.internal}
-      - MAILROOM_DISALLOWED_NETWORKS=6.6.6.6
-      - MAILROOM_AWS_ACCESS_KEY_ID=root
-      - MAILROOM_AWS_SECRET_ACCESS_KEY=tembatemba
-      - MAILROOM_S3_ENDPOINT=http://minio:9000
-      - MAILROOM_S3_REGION=us-east-1
-      - MAILROOM_S3_MEDIA_BUCKET=temba-attachments
-      - MAILROOM_S3_SESSION_BUCKET=temba-sessions
-      - MAILROOM_S3_DISABLE_SSL=true
-      - MAILROOM_S3_FORCE_PATH_STYLE=true
-      - MAILROOM_LOG_LEVEL=info
+      MAILROOM_ADDRESS: "0.0.0.0"
+      MAILROOM_DB: "postgres://${POSTGRES_USER:-temba}:${POSTGRES_PASSWORD:-tembatemba}@postgres:5432/${POSTGRES_DB:-temba}?sslmode=disable"
+      MAILROOM_REDIS: "${REDIS_URL:-redis://redis:6379/15}"
+      MAILROOM_ELASTIC: "${ELASTICSEARCH_URL:-http://elastic:9200}"
+      MAILROOM_DOMAIN: "${MAILROOM_DOMAIN:-host.docker.internal}"
+      MAILROOM_ATTACHMENT_DOMAIN: "${MAILROOM_ATTACHMENT_DOMAIN:-host.docker.internal}"
+      # NOTE: do NOT override MAILROOM_DISALLOWED_NETWORKS — mailroom's secure default blocks
+      # loopback/link-local/RFC1918/cloud-metadata, preventing flow-webhook SSRF to internal services.
+      MAILROOM_AUTH_TOKEN: "${MAILROOM_AUTH_TOKEN:-}"
+      MAILROOM_AWS_ACCESS_KEY_ID: "${S3_ACCESS_KEY:-root}"
+      MAILROOM_AWS_SECRET_ACCESS_KEY: "${S3_SECRET_KEY:-tembatemba}"
+      MAILROOM_S3_ENDPOINT: "${S3_ENDPOINT_URL:-http://seaweedfs:8333}"
+      MAILROOM_S3_REGION: "${S3_REGION:-us-east-1}"
+      MAILROOM_S3_ATTACHMENTS_BUCKET: "temba-attachments"
+      MAILROOM_S3_SESSIONS_BUCKET: "temba-sessions"
+      MAILROOM_S3_LOGS_BUCKET: "temba-logs"
+      MAILROOM_S3_DISABLE_SSL: "true"
+      MAILROOM_S3_FORCE_PATH_STYLE: "true"
+      MAILROOM_LOG_LEVEL: "${MAILROOM_LOG_LEVEL:-info}"
+    networks:
+      - rapidpro-app
+      - rapidpro-data
     healthcheck:
       test: ["CMD", "curl", "-s", "http://localhost:8090"]
       interval: 10s
@@ -258,37 +264,67 @@ services:
       retries: 5
       start_period: 10s
 
+  # Compatibility shim: RapidPro's user table is `auth_user`, but courier v26 looks up the system
+  # user via `users_user`. Expose a view so courier can boot against a RapidPro schema. One-shot;
+  # runs only when the channels/full profiles are active. Persistent across fresh volumes.
+  courier-compat:
+    image: postgis/postgis:16-3.5-alpine@sha256:47e961a569fd52ff31f0fe205ed91eeab17d9f5fff6722e6d7ea6b588748b293
+    profiles: ["channels", "full"]
+    depends_on:
+      rapidpro:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: "${POSTGRES_PASSWORD:-tembatemba}"
+    entrypoint: >
+      sh -c "psql -h postgres -U ${POSTGRES_USER:-temba} -d ${POSTGRES_DB:-temba} -v ON_ERROR_STOP=1 -c \"CREATE OR REPLACE VIEW users_user AS SELECT id, CASE WHEN username = 'system' THEN 'system' ELSE email END AS email, first_name, last_name, is_active FROM auth_user;\""
+    networks:
+      - rapidpro-data
+    restart: "no"
+
   courier:
+    # Channel I/O (Courier). Not required for the offline Surveyor path — run with
+    # `--profile channels` (or `full`) when messaging channels are needed.
+    profiles: ["channels", "full"]
     build:
       context: ./courier
       args:
-        - COURIER_REF=v7.5.13
+        - COURIER_REF=v26.3.34
     depends_on:
+      courier-compat:
+        condition: service_completed_successfully
+      rapidpro:
+        condition: service_healthy
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio-init:
+      seaweedfs-init:
         condition: service_completed_successfully
     ports:
-      - 8080:8080
+      - "${COURIER_BIND:-127.0.0.1}:${COURIER_HTTP_PORT:-8080}:8080"
     environment:
-      - COURIER_ADDRESS=0.0.0.0
-      - COURIER_DB=postgres://temba:tembatemba@postgres:5432/temba?sslmode=disable
-      - COURIER_REDIS=redis://redis:6379/15
-      - COURIER_DOMAIN=${COURIER_DOMAIN:-host.docker.internal}
-      - COURIER_BASE_URL=${COURIER_BASE_URL:-https://host.docker.internal}
-      - COURIER_DISALLOWED_NETWORKS=6.6.6.6
-      - COURIER_AWS_ACCESS_KEY_ID=root
-      - COURIER_AWS_SECRET_ACCESS_KEY=tembatemba
-      - COURIER_S3_ENDPOINT=http://minio:9000
-      - COURIER_S3_REGION=us-east-1
-      - COURIER_S3_ATTACHMENTS_BUCKET=temba-attachments
-      - COURIER_S3_DISABLE_SSL=true
-      - COURIER_S3_FORCE_PATH_STYLE=true
-      - COURIER_LOG_LEVEL=info
+      COURIER_INTERNET_ADDRESS: "0.0.0.0"
+      # default /var/spool/courier isn't writable as the distroless non-root user
+      COURIER_SPOOL_DIR: "${COURIER_SPOOL_DIR:-/tmp/courier}"
+      COURIER_DB: "postgres://${POSTGRES_USER:-temba}:${POSTGRES_PASSWORD:-tembatemba}@postgres:5432/${POSTGRES_DB:-temba}?sslmode=disable"
+      # courier v26 renamed Redis->Valkey and requires the valkey:// URL scheme
+      COURIER_VALKEY: "${COURIER_VALKEY:-valkey://redis:6379/15}"
+      COURIER_DOMAIN: "${COURIER_DOMAIN:-host.docker.internal}"
+      # NOTE: do NOT override COURIER_DISALLOWED_NETWORKS — keep courier's secure default (blocks
+      # loopback/link-local/RFC1918/cloud-metadata) so channel handlers can't be SSRF'd internally.
+      # courier v26 reads credentials/region from the AWS SDK default chain
+      AWS_ACCESS_KEY_ID: "${S3_ACCESS_KEY:-root}"
+      AWS_SECRET_ACCESS_KEY: "${S3_SECRET_KEY:-tembatemba}"
+      AWS_REGION: "${S3_REGION:-us-east-1}"
+      COURIER_S3_ENDPOINT: "${S3_ENDPOINT_URL:-http://seaweedfs:8333}"
+      COURIER_S3_ATTACHMENTS_BUCKET: "temba-attachments"
+      COURIER_S3_PATH_STYLE: "true"
+      COURIER_LOG_LEVEL: "${COURIER_LOG_LEVEL:-info}"
+    networks:
+      - rapidpro-app
+      - rapidpro-data
     healthcheck:
-      test: ["CMD", "curl", "-s", "http://localhost:8080"]
+      test: ["CMD", "/busybox", "wget", "-qO-", "http://localhost:8080"]
       interval: 10s
       timeout: 2s
       retries: 5
@@ -298,41 +334,60 @@ services:
     build:
       context: ./indexer
       args:
-        - INDEXER_REF=v7.4.0
+        - INDEXER_REF=v26.0.1
     depends_on:
       rapidpro:
         condition: service_healthy
     environment:
-      - INDEXER_DB=postgres://temba:tembatemba@postgres:5432/temba?sslmode=disable
-      - INDEXER_ELASTIC_URL=http://elastic:9200
-      - INDEXER_LOG_LEVEL=info
+      INDEXER_DB: "postgres://${POSTGRES_USER:-temba}:${POSTGRES_PASSWORD:-tembatemba}@postgres:5432/${POSTGRES_DB:-temba}?sslmode=disable"
+      INDEXER_ELASTIC_URL: "${ELASTICSEARCH_URL:-http://elastic:9200}"
+      INDEXER_LOG_LEVEL: "${INDEXER_LOG_LEVEL:-info}"
+    networks:
+      - rapidpro-data
 
   archiver:
     build:
       context: ./archiver
       args:
-        - ARCHIVER_REF=v7.5.0
+        - ARCHIVER_REF=v26.0.1
     depends_on:
       postgres:
         condition: service_healthy
-      minio-init:
+      seaweedfs-init:
         condition: service_completed_successfully
     environment:
-      - ARCHIVER_DB=postgres://temba:tembatemba@postgres:5432/temba?sslmode=disable
-      - ARCHIVER_S3_ENDPOINT=http://minio:9000
-      - ARCHIVER_S3_REGION=us-east-1
-      - ARCHIVER_S3_BUCKET=temba-archives
-      - ARCHIVER_S3_DISABLE_SSL=true
-      - ARCHIVER_S3_FORCE_PATH_STYLE=true
-      - ARCHIVER_AWS_ACCESS_KEY_ID=root
-      - ARCHIVER_AWS_SECRET_ACCESS_KEY=tembatemba
-      - ARCHIVER_UPLOAD_TO_S3=true
-      - ARCHIVER_ARCHIVE_MESSAGES=true
-      - ARCHIVER_ARCHIVE_RUNS=true
-      - ARCHIVER_RETENTION_PERIOD=90
-      - ARCHIVER_DELETE=false
-      - ARCHIVER_LOG_LEVEL=info
+      ARCHIVER_DB: "postgres://${POSTGRES_USER:-temba}:${POSTGRES_PASSWORD:-tembatemba}@postgres:5432/${POSTGRES_DB:-temba}?sslmode=disable"
+      ARCHIVER_S3_ENDPOINT: "${S3_ENDPOINT_URL:-http://seaweedfs:8333}"
+      ARCHIVER_S3_REGION: "${S3_REGION:-us-east-1}"
+      ARCHIVER_S3_BUCKET: "temba-archives"
+      ARCHIVER_S3_DISABLE_SSL: "true"
+      ARCHIVER_S3_FORCE_PATH_STYLE: "true"
+      ARCHIVER_AWS_ACCESS_KEY_ID: "${S3_ACCESS_KEY:-root}"
+      ARCHIVER_AWS_SECRET_ACCESS_KEY: "${S3_SECRET_KEY:-tembatemba}"
+      ARCHIVER_UPLOAD_TO_S3: "true"
+      ARCHIVER_ARCHIVE_MESSAGES: "${ARCHIVER_ARCHIVE_MESSAGES:-true}"
+      ARCHIVER_ARCHIVE_RUNS: "${ARCHIVER_ARCHIVE_RUNS:-true}"
+      ARCHIVER_RETENTION_PERIOD: "${ARCHIVER_RETENTION_PERIOD:-90}"
+      ARCHIVER_DELETE: "${ARCHIVER_DELETE:-false}"
+      ARCHIVER_LOG_LEVEL: "${ARCHIVER_LOG_LEVEL:-info}"
+    networks:
+      - rapidpro-data
     restart: unless-stopped
+
+networks:
+  # egress-capable network for the app services and nginx
+  rapidpro-app:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+  # isolated network for data stores: no internet egress, no host reachability
+  rapidpro-data:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.29.0.0/16
 
 volumes:
   postgres:
@@ -341,7 +396,7 @@ volumes:
     driver: local
   redis:
     driver: local
-  minio:
+  seaweedfs:
     driver: local
   sitestatic:
     driver: local
