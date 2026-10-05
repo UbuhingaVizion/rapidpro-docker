@@ -15,7 +15,7 @@ v9.0.0, Django 5.2), with the Go service versions chosen to match its schema. It
 |---|---|---|
 | RapidPro (webapp + celery) | fork `UbuhingaVizion/rapidpro` @ `v9.0.0-ubuviz.1` | RapidPro v9.0.0, Django 5.2, Python 3.12, uv-native, plain Django templates; Surveyor media/API kept |
 | Mailroom | fork `UbuhingaVizion/mailroom` @ `v9.0.0-ubuviz.1` | surveyor-capable; retains `POST /mr/surveyor/submit` (BSL `nyaruka/mailroom` removed it in `v9.1.10`) |
-| Courier | `v26.3.34` (AGPL) | last AGPL Courier release (`v26.3.35`+ is BSL) |
+| Courier | `v9.1.19` (AGPL) | newest Courier speaking the `UbuhingaVizion` mailroom fork's protocol (task carries `org_id`, per-event channel types) |
 | rp-indexer | `v26.0.1` (AGPL) | matches the 9.0.0-era schema (ES7) |
 | rp-archiver | `v26.0.1` (AGPL) | archives old runs/messages to `temba-archives` (optional for Surveyor) |
 | Elasticsearch | `7.17.9` | RapidPro CI version (ES7) |
@@ -33,8 +33,11 @@ v9.0.0, Django 5.2), with the Go service versions chosen to match its schema. It
   keeps `/mr/surveyor/submit`; the BSL `nyaruka/mailroom` removed it in `v9.1.10`. We build from the
   AGPL `UbuhingaVizion/mailroom` fork (tag `v9.0.0-ubuviz.1`), so the endpoint survives the v9
   schema/Django 5.2 move.
-- Courier/rp-indexer/rp-archiver are pinned to the newest **AGPL** releases of the 9.0.0 era
-  (Courier `v26.3.34`, rp-indexer/rp-archiver `v26.0.1`); the later tags on each are BSL.
+- Courier is pinned to the **mailroom fork's protocol**, not the newest release: `v9.1.19` is the
+  last Courier whose mailroom task carries `org_id` and uses the per-event channel task types.
+  `v9.1.20` changed the task payload, `v9.1.21` collapsed channel events into one type, and
+  `v9.3.18` renamed the queue (`handler` → `tasks:handler`) — none of which the fork understands.
+  rp-indexer/rp-archiver are `v26.0.1`.
 
 Includes: RapidPro webapp + celery, Mailroom, Courier, rp-indexer, rp-archiver, nginx, PostgreSQL
 (PostGIS), Redis, SeaweedFS (S3-compatible object store). These containers are for development/test
@@ -137,9 +140,16 @@ Set these in `.env` (or the host environment, e.g. `/etc/default/environment`) b
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | `https://app.ubuviz.com` | CSRF origins (drop the ngrok entry) |
 | `STORAGE_URL` | `https://app.ubuviz.com/media` | base URL returned for Surveyor media |
 | `MAILROOM_DOMAIN` / `MAILROOM_ATTACHMENT_DOMAIN` | `app.ubuviz.com` | mailroom-generated URLs |
-| `COURIER_DOMAIN` | `app.ubuviz.com` | courier URLs (courier v26 dropped `COURIER_BASE_URL`) |
-| `POSTGRES_PASSWORD`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `MAILROOM_AUTH_TOKEN` | strong random values | credentials |
+| `COURIER_DOMAIN` | `app.ubuviz.com` | courier callback domain |
+| `PUBLIC_DOMAIN` | `app.ubuviz.com` | public hostname for outbound links + Django `HOSTNAME`/`BRAND` |
+| `POSTGRES_PASSWORD`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `MAILROOM_AUTH_TOKEN`, `MAILROOM_COURIER_AUTH_TOKEN`/`COURIER_AUTH_TOKEN` | strong random values | credentials (courier token pair must match) |
 | `NGINX_BIND` | `127.0.0.1` | bind nginx to loopback when a host TLS proxy fronts it |
+
+- **Channels**: `docker compose up -d` starts **Courier** by default (no profile needed). The pinned
+  `v9.1.19` speaks the mailroom fork's protocol, so inbound messages flow with **no schema shims and
+  no patches**. For an on-host SMS gateway (External/EX channel at `host.docker.internal:5000`), set
+  `COURIER_DISALLOWED_NETWORKS`/`MAILROOM_DISALLOWED_NETWORKS` (see `.env.example`); both default to
+  the secure SSRF policy and are the only place it is relaxed.
 
 - **Exposure**: nginx binds `127.0.0.1` by default (set `NGINX_BIND=0.0.0.0` only if compose
   nginx is the direct public edge). App debug ports bind loopback; the data stores

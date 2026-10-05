@@ -27,7 +27,7 @@ jobs:
           for svc in ('rapidpro', 'celery', 'celerybeat'):
               assert args(svc)['RAPIDPRO_REF'] == 'v9.0.0-ubuviz.1', args(svc)
           assert args('mailroom')['MAILROOM_REF'] == 'v9.0.0-ubuviz.1', args('mailroom')
-          assert args('courier')['COURIER_REF'] == 'v26.3.34', args('courier')
+          assert args('courier')['COURIER_REF'] == 'v9.1.19', args('courier')
           assert args('indexer')['INDEXER_REF'] == 'v26.0.1', args('indexer')
           assert args('archiver')['ARCHIVER_REF'] == 'v26.0.1', args('archiver')
           assert 'elasticsearch:7.17.9' in svcs['elastic']['image'], svcs['elastic']['image']

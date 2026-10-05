@@ -32,6 +32,13 @@ CSRF_TRUSTED_ORIGINS = [
     if o.strip()
 ]
 
+# Public hostname used for outbound links (media/survey) and the Django HOSTNAME.
+# Empty keeps settings_common defaults (HOSTNAME=localhost, BRAND domain app.rapidpro.io).
+PUBLIC_DOMAIN = os.environ.get("PUBLIC_DOMAIN", "").strip()
+if PUBLIC_DOMAIN:
+    HOSTNAME = PUBLIC_DOMAIN
+    BRAND = {**BRAND, "domain": PUBLIC_DOMAIN, "hosts": [PUBLIC_DOMAIN]}
+
 # -----------------------------------------------------------------------------------
 # HTTPS / cookie / password hardening.
 #
