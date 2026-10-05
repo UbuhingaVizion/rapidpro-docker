@@ -5,8 +5,12 @@
 # static busybox provides a healthcheck client without adding a shell/curl.
 FROM debian:bookworm-slim@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251 AS tools
 
-# v26.3.34 is the last AGPL Courier release; v26.3.35+ flipped to the Business Source License.
-ARG COURIER_REF=v26.3.34
+# Pinned to the UbuhingaVizion mailroom fork's protocol, not the newest release.
+# v9.1.19 is the last Courier that puts org_id in the mailroom task and uses the
+# per-event channel task types. v9.1.20 changed the task payload, v9.1.21 collapsed
+# channel events into a single type, and v9.3.18 renamed the queue
+# (handler -> tasks:handler) — none of which the fork understands.
+ARG COURIER_REF=v9.1.19
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates curl busybox-static \

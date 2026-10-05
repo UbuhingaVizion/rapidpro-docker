@@ -35,6 +35,7 @@ x-rapidpro-env: &rapidpro-env
   AWS_RESPONSE_CHECKSUM_VALIDATION: "when_required"
   STORAGE_URL: "${STORAGE_URL:-http://localhost/media}"
   DJANGO_ALLOWED_HOSTS: "${DJANGO_ALLOWED_HOSTS:-*}"
+  PUBLIC_DOMAIN: "${PUBLIC_DOMAIN:-}"
   DJANGO_SECURE_PROXY_SSL_HEADER: "${DJANGO_SECURE_PROXY_SSL_HEADER:-HTTP_X_FORWARDED_PROTO,https}"
   DJANGO_CSRF_TRUSTED_ORIGINS: "${DJANGO_CSRF_TRUSTED_ORIGINS:-https://*.ngrok-free.app,https://app.ubuviz.com}"
 
@@ -232,6 +233,9 @@ services:
         condition: service_healthy
       seaweedfs-init:
         condition: service_completed_successfully
+    # Needed so a flow's call_webhook can reach an on-host service (smsgateway /resolve at :5000)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "${MAILROOM_BIND:-127.0.0.1}:${MAILROOM_HTTP_PORT:-8090}:8090"
     environment:
@@ -241,9 +245,15 @@ services:
       MAILROOM_ELASTIC: "${ELASTICSEARCH_URL:-http://elastic:9200}"
       MAILROOM_DOMAIN: "${MAILROOM_DOMAIN:-host.docker.internal}"
       MAILROOM_ATTACHMENT_DOMAIN: "${MAILROOM_ATTACHMENT_DOMAIN:-host.docker.internal}"
-      # NOTE: do NOT override MAILROOM_DISALLOWED_NETWORKS — mailroom's secure default blocks
-      # loopback/link-local/RFC1918/cloud-metadata, preventing flow-webhook SSRF to internal services.
+      # OPT-IN local-resolver exception: empty keeps mailroom's secure default (blocks
+      # loopback/link-local/RFC1918/cloud-metadata). Set MAILROOM_DISALLOWED_NETWORKS in .env
+      # (dropping only 172.16.0.0/12) when a flow's call_webhook must reach a service on the
+      # Docker host, e.g. the smsgateway /resolve at host.docker.internal:5000.
+      MAILROOM_DISALLOWED_NETWORKS: "${MAILROOM_DISALLOWED_NETWORKS:-}"
       MAILROOM_AUTH_TOKEN: "${MAILROOM_AUTH_TOKEN:-}"
+      # Shared with courier's COURIER_AUTH_TOKEN; sent as `Authorization: Bearer <token>`
+      # on POST /c/_fetch-attachment.
+      MAILROOM_COURIER_AUTH_TOKEN: "${MAILROOM_COURIER_AUTH_TOKEN:-}"
       MAILROOM_AWS_ACCESS_KEY_ID: "${S3_ACCESS_KEY:-root}"
       MAILROOM_AWS_SECRET_ACCESS_KEY: "${S3_SECRET_KEY:-tembatemba}"
       MAILROOM_S3_ENDPOINT: "${S3_ENDPOINT_URL:-http://seaweedfs:8333}"
@@ -264,34 +274,14 @@ services:
       retries: 5
       start_period: 10s
 
-  # Compatibility shim: RapidPro's user table is `auth_user`, but courier v26 looks up the system
-  # user via `users_user`. Expose a view so courier can boot against a RapidPro schema. One-shot;
-  # runs only when the channels/full profiles are active. Persistent across fresh volumes.
-  courier-compat:
-    image: postgis/postgis:16-3.5-alpine@sha256:47e961a569fd52ff31f0fe205ed91eeab17d9f5fff6722e6d7ea6b588748b293
-    profiles: ["channels", "full"]
-    depends_on:
-      rapidpro:
-        condition: service_healthy
-    environment:
-      PGPASSWORD: "${POSTGRES_PASSWORD:-tembatemba}"
-    entrypoint: >
-      sh -c "psql -h postgres -U ${POSTGRES_USER:-temba} -d ${POSTGRES_DB:-temba} -v ON_ERROR_STOP=1 -c \"CREATE OR REPLACE VIEW users_user AS SELECT id, CASE WHEN username = 'system' THEN 'system' ELSE email END AS email, first_name, last_name, is_active FROM auth_user;\""
-    networks:
-      - rapidpro-data
-    restart: "no"
-
   courier:
-    # Channel I/O (Courier). Not required for the offline Surveyor path — run with
-    # `--profile channels` (or `full`) when messaging channels are needed.
-    profiles: ["channels", "full"]
+    # Channel I/O (Courier). Starts with the default `docker compose up -d`; the
+    # pinned v9 release speaks the UbuhingaVizion mailroom fork's protocol.
     build:
       context: ./courier
       args:
-        - COURIER_REF=v26.3.34
+        - COURIER_REF=v9.1.19
     depends_on:
-      courier-compat:
-        condition: service_completed_successfully
       rapidpro:
         condition: service_healthy
       postgres:
@@ -300,25 +290,33 @@ services:
         condition: service_healthy
       seaweedfs-init:
         condition: service_completed_successfully
+    # Needed so the EX channel's send_url can reach an on-host SMS gateway (smsgateway :5000)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "${COURIER_BIND:-127.0.0.1}:${COURIER_HTTP_PORT:-8080}:8080"
     environment:
-      COURIER_INTERNET_ADDRESS: "0.0.0.0"
+      COURIER_ADDRESS: "0.0.0.0"
+      COURIER_PORT: "8080"
       # default /var/spool/courier isn't writable as the distroless non-root user
       COURIER_SPOOL_DIR: "${COURIER_SPOOL_DIR:-/tmp/courier}"
       COURIER_DB: "postgres://${POSTGRES_USER:-temba}:${POSTGRES_PASSWORD:-tembatemba}@postgres:5432/${POSTGRES_DB:-temba}?sslmode=disable"
-      # courier v26 renamed Redis->Valkey and requires the valkey:// URL scheme
-      COURIER_VALKEY: "${COURIER_VALKEY:-valkey://redis:6379/15}"
+      COURIER_REDIS: "${REDIS_URL:-redis://redis:6379/15}"
       COURIER_DOMAIN: "${COURIER_DOMAIN:-host.docker.internal}"
-      # NOTE: do NOT override COURIER_DISALLOWED_NETWORKS — keep courier's secure default (blocks
-      # loopback/link-local/RFC1918/cloud-metadata) so channel handlers can't be SSRF'd internally.
-      # courier v26 reads credentials/region from the AWS SDK default chain
-      AWS_ACCESS_KEY_ID: "${S3_ACCESS_KEY:-root}"
-      AWS_SECRET_ACCESS_KEY: "${S3_SECRET_KEY:-tembatemba}"
-      AWS_REGION: "${S3_REGION:-us-east-1}"
+      # Shared with mailroom's MAILROOM_COURIER_AUTH_TOKEN; guards POST /c/_fetch-attachment.
+      COURIER_AUTH_TOKEN: "${COURIER_AUTH_TOKEN:-}"
+      # OPT-IN local-gateway exception: empty keeps courier's secure default (blocks
+      # loopback/link-local/RFC1918/cloud-metadata). Set COURIER_DISALLOWED_NETWORKS in .env
+      # (dropping only 172.16.0.0/12) when an External/Kannel channel must call a service on the
+      # Docker host, e.g. the smsgateway at host.docker.internal:5000.
+      COURIER_DISALLOWED_NETWORKS: "${COURIER_DISALLOWED_NETWORKS:-}"
+      COURIER_AWS_ACCESS_KEY_ID: "${S3_ACCESS_KEY:-root}"
+      COURIER_AWS_SECRET_ACCESS_KEY: "${S3_SECRET_KEY:-tembatemba}"
       COURIER_S3_ENDPOINT: "${S3_ENDPOINT_URL:-http://seaweedfs:8333}"
+      COURIER_S3_REGION: "${S3_REGION:-us-east-1}"
       COURIER_S3_ATTACHMENTS_BUCKET: "temba-attachments"
-      COURIER_S3_PATH_STYLE: "true"
+      COURIER_S3_DISABLE_SSL: "true"
+      COURIER_S3_FORCE_PATH_STYLE: "true"
       COURIER_LOG_LEVEL: "${COURIER_LOG_LEVEL:-info}"
     networks:
       - rapidpro-app
