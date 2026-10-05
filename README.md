@@ -13,7 +13,7 @@ v9.0.0, Django 5.2), with the Go service versions chosen to match its schema. It
 
 | Service | Version | Why |
 |---|---|---|
-| RapidPro (webapp + celery) | fork `UbuhingaVizion/rapidpro` @ `v9.0.0-ubuviz.1` | RapidPro v9.0.0, Django 5.2, Python 3.12, uv-native, plain Django templates; Surveyor media/API kept |
+| RapidPro (webapp + celery) | fork `UbuhingaVizion/rapidpro` @ `v9.0.0-ubuviz.2` | RapidPro v9.0.0, Django 5.2, Python 3.12, uv-native, plain Django templates; Surveyor media/API kept |
 | Mailroom | fork `UbuhingaVizion/mailroom` @ `v9.0.0-ubuviz.1` | surveyor-capable; retains `POST /mr/surveyor/submit` (BSL `nyaruka/mailroom` removed it in `v9.1.10`) |
 | Courier | `v9.1.19` (AGPL) | newest Courier speaking the `UbuhingaVizion` mailroom fork's protocol (task carries `org_id`, per-event channel types) |
 | rp-indexer | `v26.0.1` (AGPL) | matches the 9.0.0-era schema (ES7) |
@@ -91,7 +91,7 @@ stack smoke test is run manually on a docker-capable host (see the script commen
 
 ## Build tooling
 
-- **RapidPro image** builds from the pinned fork tag `UbuhingaVizion/rapidpro@v9.0.0-ubuviz.1`
+- **RapidPro image** builds from the pinned fork tag `UbuhingaVizion/rapidpro@v9.0.0-ubuviz.2`
   (branch `modern`), fetched with `git clone --branch` in the builder (compose build args
   `RAPIDPRO_REPO`/`RAPIDPRO_REF`). This repo overlays `rapidpro/docker_settings.py` (copied
   to `temba/settings.py`) and `rapidpro/entrypoint.sh`. It is a **multi-stage build**: the builder
