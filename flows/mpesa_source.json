@@ -1,0 +1,306 @@
+{
+  "version": "13",
+  "site": "https://app.rapidpro.io",
+  "flows": [
+    {
+      "name": "Mpesa Payment",
+      "uuid": "5b0d47cc-ff19-4e50-911d-7dcfdbe4c00f",
+      "spec_version": "13.2.0",
+      "language": "eng",
+      "type": "messaging",
+      "nodes": [
+        {
+          "uuid": "node-sender",
+          "router": {
+            "type": "switch",
+            "operand": "@contact.urn",
+            "cases": [
+              { "arguments": ["MPESA"], "type": "has_phrase", "uuid": "case-mpesa", "category_uuid": "cat-mpesa" },
+              { "arguments": ["ECOBANK"], "type": "has_phrase", "uuid": "case-ecobank", "category_uuid": "cat-ecobank" },
+              { "arguments": ["Equity Bank"], "type": "has_phrase", "uuid": "case-equity", "category_uuid": "cat-equity" },
+              { "arguments": ["KCB"], "type": "has_phrase", "uuid": "case-kcb", "category_uuid": "cat-kcb" }
+            ],
+            "categories": [
+              { "name": "MPESA", "uuid": "cat-mpesa", "exit_uuid": "exit-sender-mpesa" },
+              { "name": "ECOBANK", "uuid": "cat-ecobank", "exit_uuid": "exit-sender-ecobank" },
+              { "name": "Equity", "uuid": "cat-equity", "exit_uuid": "exit-sender-equity" },
+              { "name": "KCB", "uuid": "cat-kcb", "exit_uuid": "exit-sender-kcb" },
+              { "name": "Other", "uuid": "cat-sender-other", "exit_uuid": "exit-sender-other" }
+            ],
+            "default_category_uuid": "cat-sender-other"
+          },
+          "exits": [
+            { "uuid": "exit-sender-mpesa", "destination_uuid": "node-mpesa-type" },
+            { "uuid": "exit-sender-ecobank", "destination_uuid": "node-ecobank-parse" },
+            { "uuid": "exit-sender-equity", "destination_uuid": "node-equity-parse" },
+            { "uuid": "exit-sender-kcb", "destination_uuid": "node-kcb-parse" },
+            { "uuid": "exit-sender-other", "destination_uuid": null }
+          ]
+        },
+        {
+          "uuid": "node-mpesa-type",
+          "router": {
+            "type": "switch",
+            "operand": "@input.text",
+            "cases": [
+              { "arguments": ["You have received"], "type": "has_phrase", "uuid": "case-mpesa-in", "category_uuid": "cat-mpesa-in" }
+            ],
+            "categories": [
+              { "name": "Received", "uuid": "cat-mpesa-in", "exit_uuid": "exit-mpesa-in" },
+              { "name": "Other", "uuid": "cat-mpesa-other", "exit_uuid": "exit-mpesa-other" }
+            ],
+            "default_category_uuid": "cat-mpesa-other"
+          },
+          "exits": [
+            { "uuid": "exit-mpesa-in", "destination_uuid": "node-mpesa-in" },
+            { "uuid": "exit-mpesa-other", "destination_uuid": null }
+          ]
+        },
+        {
+          "uuid": "node-mpesa-in",
+          "actions": [
+            {
+              "uuid": "act-mpesa-receipt", "type": "set_run_result", "name": "receipt", "category": "All",
+              "value": "@(regex_match(input.text, \"^([A-Z0-9]{10})\", 1))"
+            },
+            {
+              "uuid": "act-mpesa-amount", "type": "set_run_result", "name": "amount", "category": "All",
+              "value": "@(replace(regex_match(input.text, \"Ksh([0-9,]+\\.[0-9]{2})\", 1), \",\", \"\"))"
+            },
+            {
+              "uuid": "act-mpesa-name", "type": "set_run_result", "name": "party_name", "category": "All",
+              "value": "@(trim(default(regex_match(input.text, \"(?i)from\\s+AIRTEL MONEY\\s*-\\s*(.+?)\\s+\\d+\", 1), default(regex_match(input.text, \"from\\s+(.+?)\\s+\\d{3,6}\\*+\\d{3}\", 1), regex_match(input.text, \"from\\s+(.+?)\\s+on\", 1)))))"
+            },
+            {
+              "uuid": "act-mpesa-number", "type": "set_run_result", "name": "party_number", "category": "All",
+              "value": "@(regex_match(input.text, \"(?i)AIRTEL MONEY\\s*-\\s*.+?\\s+(\\d{6,})\", 1))"
+            },
+            {
+              "uuid": "act-mpesa-mask", "type": "set_run_result", "name": "party_mask", "category": "All",
+              "value": "@(regex_match(input.text, \"from\\s+.+?\\s+(\\d{3,6}\\*+\\d{3})\", 1))"
+            },
+            {
+              "uuid": "act-mpesa-bankref", "type": "set_run_result", "name": "bank_ref", "category": "All",
+              "value": ""
+            },
+            {
+              "uuid": "act-mpesa-agg", "type": "set_run_result", "name": "aggregator", "category": "All",
+              "value": "@(regex_match(input.text, \"(?i)(bulk account|ecobank|equity|b2w transfer|bank|kcb)\", 1))"
+            }
+          ],
+          "exits": [ { "uuid": "exit-mpesa-in-call", "destination_uuid": "node-call-payment" } ]
+        },
+        {
+          "uuid": "node-ecobank-parse",
+          "actions": [
+            {
+              "uuid": "act-eco-receipt", "type": "set_run_result", "name": "receipt", "category": "All",
+              "value": ""
+            },
+            {
+              "uuid": "act-eco-amount", "type": "set_run_result", "name": "amount", "category": "All",
+              "value": "@(replace(regex_match(input.text, \"KES\\s*([0-9,]+\\.\\d{2})\", 1), \",\", \"\"))"
+            },
+            {
+              "uuid": "act-eco-name", "type": "set_run_result", "name": "party_name", "category": "All",
+              "value": "@(trim(regex_match(input.text, \"from\\s+(.+?)\\s+\\d{3,6}\\*+\\d{3}\", 1)))"
+            },
+            {
+              "uuid": "act-eco-mask", "type": "set_run_result", "name": "party_mask", "category": "All",
+              "value": "@(regex_match(input.text, \"from\\s+.+?\\s+(\\d{3,6}\\*+\\d{3})\", 1))"
+            },
+            {
+              "uuid": "act-eco-bankref", "type": "set_run_result", "name": "bank_ref", "category": "All",
+              "value": "@(regex_match(input.text, \"ref\\.\\s*([A-Z0-9]+)\", 1))"
+            },
+            {
+              "uuid": "act-eco-agg", "type": "set_run_result", "name": "aggregator", "category": "All",
+              "value": ""
+            }
+          ],
+          "exits": [ { "uuid": "exit-ecobank", "destination_uuid": "node-call-payment" } ]
+        },
+        {
+          "uuid": "node-equity-parse",
+          "actions": [
+            {
+              "uuid": "act-eq-receipt", "type": "set_run_result", "name": "receipt", "category": "All",
+              "value": "@(regex_match(input.text, \"receipt number is\\s*([A-Z0-9]+)\", 1))"
+            },
+            {
+              "uuid": "act-eq-amount", "type": "set_run_result", "name": "amount", "category": "All",
+              "value": "@(replace(regex_match(input.text, \"KShs?\\.?\\s*([0-9,]+\\.?[0-9]*)\", 1), \",\", \"\"))"
+            },
+            {
+              "uuid": "act-eq-name", "type": "set_run_result", "name": "party_name", "category": "All",
+              "value": "@(trim(regex_match(input.text, \"^(.+?)\\s+has sent\", 1)))"
+            },
+            {
+              "uuid": "act-eq-mask", "type": "set_run_result", "name": "party_mask", "category": "All",
+              "value": ""
+            },
+            {
+              "uuid": "act-eq-number", "type": "set_run_result", "name": "party_number", "category": "All",
+              "value": ""
+            },
+            {
+              "uuid": "act-eco-number", "type": "set_run_result", "name": "party_number", "category": "All",
+              "value": ""
+            },
+            {
+              "uuid": "act-eq-bankref", "type": "set_run_result", "name": "bank_ref", "category": "All",
+              "value": "@(regex_match(input.text, \"reference is\\s*([A-Z0-9]+)\", 1))"
+            },
+            {
+              "uuid": "act-eq-agg", "type": "set_run_result", "name": "aggregator", "category": "All",
+              "value": ""
+            }
+          ],
+          "exits": [ { "uuid": "exit-equity", "destination_uuid": "node-call-payment" } ]
+        },
+        {
+          "uuid": "node-kcb-parse",
+          "actions": [
+            {
+              "uuid": "act-kcb-receipt", "type": "set_run_result", "name": "receipt", "category": "All",
+              "value": "@(regex_match(input.text, \"M-PESA Ref\\s*([A-Z0-9]+)\", 1))"
+            },
+            {
+              "uuid": "act-kcb-amount", "type": "set_run_result", "name": "amount", "category": "All",
+              "value": "@(replace(regex_match(input.text, \"KES\\s*([0-9,]+\\.?[0-9]*)\", 1), \",\", \"\"))"
+            },
+            {
+              "uuid": "act-kcb-name", "type": "set_run_result", "name": "party_name", "category": "All",
+              "value": "@(trim(regex_match(input.text, \"from\\s+(.+?)\\.\\s*M-PESA Ref\", 1)))"
+            },
+            {
+              "uuid": "act-kcb-mask", "type": "set_run_result", "name": "party_mask", "category": "All",
+              "value": ""
+            },
+            {
+              "uuid": "act-kcb-number", "type": "set_run_result", "name": "party_number", "category": "All",
+              "value": ""
+            },
+            {
+              "uuid": "act-kcb-bankref", "type": "set_run_result", "name": "bank_ref", "category": "All",
+              "value": "@(regex_match(input.text, \"Transaction Ref No\\s*([A-Z0-9]+)\", 1))"
+            },
+            {
+              "uuid": "act-kcb-agg", "type": "set_run_result", "name": "aggregator", "category": "All",
+              "value": ""
+            }
+          ],
+          "exits": [ { "uuid": "exit-kcb", "destination_uuid": "node-call-payment" } ]
+        },
+        {
+          "uuid": "node-call-payment",
+          "actions": [
+            {
+              "uuid": "act-call-payment",
+              "type": "call_webhook",
+              "method": "POST",
+              "url": "http://host.docker.internal:5000/payment",
+              "headers": { "Content-Type": "application/json" },
+              "body": "{\"receipt\":\"@results.receipt.value\",\"bank_ref\":\"@results.bank_ref.value\",\"amount\":\"@results.amount.value\",\"direction\":\"in\",\"party_name\":\"@results.party_name.value\",\"party_mask\":\"@results.party_mask.value\",\"party_number\":\"@results.party_number.value\",\"aggregator\":\"@results.aggregator.value\"}",
+              "result_name": "pay"
+            }
+          ],
+          "exits": [ { "uuid": "exit-call", "destination_uuid": "node-check-action" } ]
+        },
+        {
+          "uuid": "node-check-action",
+          "router": {
+            "type": "switch",
+            "operand": "@results.pay.extra.action",
+            "cases": [
+              { "arguments": ["credit"], "type": "has_only_text", "uuid": "case-credit", "category_uuid": "cat-credit" }
+            ],
+            "categories": [
+              { "name": "Credit", "uuid": "cat-credit", "exit_uuid": "exit-credit" },
+              { "name": "Other", "uuid": "cat-action-other", "exit_uuid": "exit-action-other" }
+            ],
+            "default_category_uuid": "cat-action-other"
+          },
+          "exits": [
+            { "uuid": "exit-credit", "destination_uuid": "node-credit" },
+            { "uuid": "exit-action-other", "destination_uuid": null }
+          ]
+        },
+        {
+          "uuid": "node-credit",
+          "actions": [
+            {
+              "uuid": "act-start-points",
+              "type": "start_session",
+              "flow": { "uuid": "4a32b46d-215d-4831-86d8-2560fdd65d90", "name": "Add JengaPoints" },
+              "contact_query": "uuid = @results.pay.extra.person.contact_uuid"
+            }
+          ],
+          "exits": [ { "uuid": "exit-credit-done", "destination_uuid": null } ]
+        }
+      ],
+      "_ui": {
+        "nodes": {
+          "node-sender": { "type": "split_by_expression", "position": { "left": 100, "top": 60 } },
+          "node-mpesa-type": { "type": "split_by_expression", "position": { "left": 0, "top": 220 } },
+          "node-mpesa-in": { "type": "execute_actions", "position": { "left": -160, "top": 400 } },
+          "node-ecobank-parse": { "type": "execute_actions", "position": { "left": 100, "top": 400 } },
+          "node-equity-parse": { "type": "execute_actions", "position": { "left": 360, "top": 400 } },
+          "node-kcb-parse": { "type": "execute_actions", "position": { "left": 520, "top": 400 } },
+          "node-call-payment": { "type": "execute_actions", "position": { "left": 100, "top": 620 } },
+          "node-check-action": { "type": "split_by_expression", "position": { "left": 100, "top": 760 } },
+          "node-credit": { "type": "execute_actions", "position": { "left": 100, "top": 920 } }
+        }
+      },
+      "revision": 1,
+      "expire_after_minutes": 10080
+    },
+    {
+      "name": "Add JengaPoints",
+      "uuid": "4a32b46d-215d-4831-86d8-2560fdd65d90",
+      "spec_version": "13.2.0",
+      "language": "eng",
+      "type": "messaging",
+      "nodes": [
+        {
+          "uuid": "node-add-points",
+          "actions": [
+            {
+              "uuid": "act-calc-points",
+              "type": "set_run_result",
+              "name": "points",
+              "category": "All",
+              "value": "@(default(fields.jengapoints, 0) + number(default(parent.results.amount.value, 0)))"
+            },
+            {
+              "uuid": "act-add-points",
+              "type": "set_contact_field",
+              "field": { "key": "jengapoints", "name": "JengaPoints" },
+              "value": "@results.points.value"
+            },
+            {
+              "uuid": "act-reply",
+              "type": "send_broadcast",
+              "legacy_vars": ["@parent.results.pay.extra.person.urn"],
+              "text": "Hello @(default(parent.results.pay.extra.person.name, parent.results.party_name.value))! We received your payment of Ksh @parent.results.amount.value (ref @(default(parent.results.receipt.value, parent.results.bank_ref.value))). Your JengaPoints are @results.points.value."
+            }
+          ],
+          "exits": [
+            { "uuid": "exit-points-done", "destination_uuid": null }
+          ]
+        }
+      ],
+      "_ui": {
+        "nodes": {
+          "node-add-points": { "type": "execute_actions", "position": { "left": 0, "top": 0 } }
+        }
+      },
+      "revision": 1,
+      "expire_after_minutes": 10080
+    }
+  ],
+  "campaigns": [],
+  "triggers": [],
+  "fields": [],
+  "groups": []
+}

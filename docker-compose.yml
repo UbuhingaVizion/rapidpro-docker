@@ -59,8 +59,14 @@ services:
     image: postgis/postgis:16-3.5-alpine@sha256:47e961a569fd52ff31f0fe205ed91eeab17d9f5fff6722e6d7ea6b588748b293 # matches RapidPro modern CI
     volumes:
       - postgres:/var/lib/postgresql/data
+    # Published on loopback ONLY so the on-host smsgateway (dedup engine) can use
+    # pg_trgm/fuzzystrmatch. `rapidpro-data` is internal, and Docker silently refuses
+    # host port publishing on internal networks, so postgres also joins rapidpro-edge.
+    ports:
+      - "${POSTGRES_BIND:-127.0.0.1}:${POSTGRES_HOST_PORT:-5432}:5432"
     networks:
       - rapidpro-data
+      - rapidpro-edge
     environment:
       POSTGRES_USER: "${POSTGRES_USER:-temba}"
       POSTGRES_DB: "${POSTGRES_DB:-temba}"
@@ -386,6 +392,13 @@ networks:
     ipam:
       config:
         - subnet: 172.29.0.0/16
+  # non-internal bridge used ONLY to allow the loopback publish of postgres for the
+  # on-host smsgateway (Docker cannot publish ports from an internal network).
+  rapidpro-edge:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16
 
 volumes:
   postgres:

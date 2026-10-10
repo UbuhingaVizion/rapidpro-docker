@@ -1,0 +1,620 @@
+{
+  "version": "13",
+  "site": "https://app.rapidpro.io",
+  "flows": [
+    {
+      "name": "Mpesa Payment",
+      "uuid": "5b0d47cc-ff19-4e50-911d-7dcfdbe4c00f",
+      "spec_version": "13.2.0",
+      "language": "eng",
+      "type": "messaging",
+      "nodes": [
+        {
+          "uuid": "31033f53-80b7-4f65-8633-11032a7ce68f",
+          "router": {
+            "type": "switch",
+            "operand": "@contact.urn",
+            "cases": [
+              {
+                "arguments": [
+                  "MPESA"
+                ],
+                "type": "has_phrase",
+                "uuid": "b98cf265-6bd9-47ba-a146-7acb977ab1e7",
+                "category_uuid": "3c3ed88f-0dfa-473b-9888-4ce48b12f4ac"
+              },
+              {
+                "arguments": [
+                  "ECOBANK"
+                ],
+                "type": "has_phrase",
+                "uuid": "71b131d9-a1d9-4422-a27a-9589c416082c",
+                "category_uuid": "691382ef-7fe1-477b-b5f5-acbc8b82f931"
+              },
+              {
+                "arguments": [
+                  "Equity Bank"
+                ],
+                "type": "has_phrase",
+                "uuid": "c04f59e0-f93f-4ff4-a489-53e3bf22e0c9",
+                "category_uuid": "a19cc862-b83f-451c-af80-0785cd170710"
+              },
+              {
+                "arguments": [
+                  "KCB"
+                ],
+                "type": "has_phrase",
+                "uuid": "5a9dab8a-fdbb-4734-b930-6207af70b27e",
+                "category_uuid": "d96f8eac-3867-4a9e-ace1-d1442ed48845"
+              }
+            ],
+            "categories": [
+              {
+                "name": "MPESA",
+                "uuid": "3c3ed88f-0dfa-473b-9888-4ce48b12f4ac",
+                "exit_uuid": "b3c5b13a-ef1b-40e9-906d-25c32d762756"
+              },
+              {
+                "name": "ECOBANK",
+                "uuid": "691382ef-7fe1-477b-b5f5-acbc8b82f931",
+                "exit_uuid": "31f00975-712a-442b-bcbb-39a7e6fa6430"
+              },
+              {
+                "name": "Equity",
+                "uuid": "a19cc862-b83f-451c-af80-0785cd170710",
+                "exit_uuid": "af22bbbc-bfe7-4cfc-93b6-045cfb401576"
+              },
+              {
+                "name": "KCB",
+                "uuid": "d96f8eac-3867-4a9e-ace1-d1442ed48845",
+                "exit_uuid": "8bd33902-6516-4969-989a-47a70b4b51f5"
+              },
+              {
+                "name": "Other",
+                "uuid": "1bc56063-1ecd-413f-808d-d2420fc69213",
+                "exit_uuid": "acf3b9ee-e208-4346-b860-45b803b906d3"
+              }
+            ],
+            "default_category_uuid": "1bc56063-1ecd-413f-808d-d2420fc69213",
+            "uuid": "7c29db94-5270-4c37-acbb-1d7d6ea8979c"
+          },
+          "exits": [
+            {
+              "uuid": "b3c5b13a-ef1b-40e9-906d-25c32d762756",
+              "destination_uuid": "dc7fd303-b9d8-470d-ab25-d1b4f49f3eaa"
+            },
+            {
+              "uuid": "31f00975-712a-442b-bcbb-39a7e6fa6430",
+              "destination_uuid": "06906418-6fa6-4966-87c9-a4b5ea52d17d"
+            },
+            {
+              "uuid": "af22bbbc-bfe7-4cfc-93b6-045cfb401576",
+              "destination_uuid": "f193c59f-b1ca-4d90-8fcb-068cd39acb2d"
+            },
+            {
+              "uuid": "8bd33902-6516-4969-989a-47a70b4b51f5",
+              "destination_uuid": "931736e8-adcd-4426-ad51-94d6b5417bcb"
+            },
+            {
+              "uuid": "acf3b9ee-e208-4346-b860-45b803b906d3",
+              "destination_uuid": null
+            }
+          ]
+        },
+        {
+          "uuid": "dc7fd303-b9d8-470d-ab25-d1b4f49f3eaa",
+          "router": {
+            "type": "switch",
+            "operand": "@input.text",
+            "cases": [
+              {
+                "arguments": [
+                  "You have received"
+                ],
+                "type": "has_phrase",
+                "uuid": "d91304cc-6a41-400d-9d03-4241eb0f12c3",
+                "category_uuid": "09860ece-5ee6-4661-8235-a00a464d67e5"
+              }
+            ],
+            "categories": [
+              {
+                "name": "Received",
+                "uuid": "09860ece-5ee6-4661-8235-a00a464d67e5",
+                "exit_uuid": "b60d85a6-e780-4df7-b6b8-34e37e62c167"
+              },
+              {
+                "name": "Other",
+                "uuid": "b59578c1-fed4-4cdb-ab06-2a25ae937132",
+                "exit_uuid": "6accb084-9620-49ae-98a5-d56b30635595"
+              }
+            ],
+            "default_category_uuid": "b59578c1-fed4-4cdb-ab06-2a25ae937132",
+            "uuid": "e517bebe-859d-4785-8507-71bc6cdd8c50"
+          },
+          "exits": [
+            {
+              "uuid": "b60d85a6-e780-4df7-b6b8-34e37e62c167",
+              "destination_uuid": "5ec4cbc8-8e9d-42c0-b674-a1755511a984"
+            },
+            {
+              "uuid": "6accb084-9620-49ae-98a5-d56b30635595",
+              "destination_uuid": null
+            }
+          ]
+        },
+        {
+          "uuid": "5ec4cbc8-8e9d-42c0-b674-a1755511a984",
+          "actions": [
+            {
+              "uuid": "7b6505a8-a41f-4fe0-96c5-4ac22c3eb3ae",
+              "type": "set_run_result",
+              "name": "receipt",
+              "category": "All",
+              "value": "@(regex_match(input.text, \"^([A-Z0-9]{10})\", 1))"
+            },
+            {
+              "uuid": "665df182-480a-44ac-a792-dd8d430dbdda",
+              "type": "set_run_result",
+              "name": "amount",
+              "category": "All",
+              "value": "@(replace(regex_match(input.text, \"Ksh([0-9,]+\\.[0-9]{2})\", 1), \",\", \"\"))"
+            },
+            {
+              "uuid": "11d0cddc-2c20-4624-98aa-887190fdb28b",
+              "type": "set_run_result",
+              "name": "party_name",
+              "category": "All",
+              "value": "@(trim(default(regex_match(input.text, \"(?i)from\\s+AIRTEL MONEY\\s*-\\s*(.+?)\\s+\\d+\", 1), default(regex_match(input.text, \"from\\s+(.+?)\\s+\\d{3,6}\\*+\\d{3}\", 1), regex_match(input.text, \"from\\s+(.+?)\\s+on\", 1)))))"
+            },
+            {
+              "uuid": "74d6d326-7c61-45c6-9c59-97f6d774628b",
+              "type": "set_run_result",
+              "name": "party_number",
+              "category": "All",
+              "value": "@(regex_match(input.text, \"(?i)AIRTEL MONEY\\s*-\\s*.+?\\s+(\\d{6,})\", 1))"
+            },
+            {
+              "uuid": "1e3ed2ae-955d-4b8d-a9e2-b5221affbf33",
+              "type": "set_run_result",
+              "name": "party_mask",
+              "category": "All",
+              "value": "@(regex_match(input.text, \"from\\s+.+?\\s+(\\d{3,6}\\*+\\d{3})\", 1))"
+            },
+            {
+              "uuid": "be18faa6-9e22-4fb8-874c-4cd7ed4c15c9",
+              "type": "set_run_result",
+              "name": "bank_ref",
+              "category": "All",
+              "value": ""
+            },
+            {
+              "uuid": "623dd102-0dd4-44c4-a311-368994c08a4d",
+              "type": "set_run_result",
+              "name": "aggregator",
+              "category": "All",
+              "value": "@(regex_match(input.text, \"(?i)(bulk account|ecobank|equity|b2w transfer|bank|kcb)\", 1))"
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "1830078b-8de1-463a-8a95-cf0851ad3fd5",
+              "destination_uuid": "e2f36768-ef80-4349-97fc-f79a217f7cf7"
+            }
+          ]
+        },
+        {
+          "uuid": "06906418-6fa6-4966-87c9-a4b5ea52d17d",
+          "actions": [
+            {
+              "uuid": "eeb9ae46-274d-4285-8a48-d30c91d987cd",
+              "type": "set_run_result",
+              "name": "receipt",
+              "category": "All",
+              "value": ""
+            },
+            {
+              "uuid": "7a57f13b-d206-45e7-acf1-943f222a4205",
+              "type": "set_run_result",
+              "name": "amount",
+              "category": "All",
+              "value": "@(replace(regex_match(input.text, \"KES\\s*([0-9,]+\\.\\d{2})\", 1), \",\", \"\"))"
+            },
+            {
+              "uuid": "1f6186a3-5405-4c8b-bb78-9fd0acdcb89e",
+              "type": "set_run_result",
+              "name": "party_name",
+              "category": "All",
+              "value": "@(trim(regex_match(input.text, \"from\\s+(.+?)\\s+\\d{3,6}\\*+\\d{3}\", 1)))"
+            },
+            {
+              "uuid": "04e2b767-74d9-48d3-a97e-0fd139ce97ad",
+              "type": "set_run_result",
+              "name": "party_mask",
+              "category": "All",
+              "value": "@(regex_match(input.text, \"from\\s+.+?\\s+(\\d{3,6}\\*+\\d{3})\", 1))"
+            },
+            {
+              "uuid": "106e92e3-6ff7-4ef1-a778-0daa1c42f6f4",
+              "type": "set_run_result",
+              "name": "bank_ref",
+              "category": "All",
+              "value": "@(regex_match(input.text, \"ref\\.\\s*([A-Z0-9]+)\", 1))"
+            },
+            {
+              "uuid": "77707dfb-bb45-44e5-8a19-2b418b34a0e9",
+              "type": "set_run_result",
+              "name": "aggregator",
+              "category": "All",
+              "value": ""
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "66daad62-2532-44cc-bdbb-3f893dc54648",
+              "destination_uuid": "e2f36768-ef80-4349-97fc-f79a217f7cf7"
+            }
+          ]
+        },
+        {
+          "uuid": "f193c59f-b1ca-4d90-8fcb-068cd39acb2d",
+          "actions": [
+            {
+              "uuid": "f3b28b24-f614-4719-b4c8-c7ae12e1ee0e",
+              "type": "set_run_result",
+              "name": "receipt",
+              "category": "All",
+              "value": "@(regex_match(input.text, \"receipt number is\\s*([A-Z0-9]+)\", 1))"
+            },
+            {
+              "uuid": "6f4b0a51-4eb9-45d5-bf4b-cd23f4100f1c",
+              "type": "set_run_result",
+              "name": "amount",
+              "category": "All",
+              "value": "@(replace(regex_match(input.text, \"KShs?\\.?\\s*([0-9,]+\\.?[0-9]*)\", 1), \",\", \"\"))"
+            },
+            {
+              "uuid": "9b3367a2-c696-4d87-9319-02aa9a959401",
+              "type": "set_run_result",
+              "name": "party_name",
+              "category": "All",
+              "value": "@(trim(regex_match(input.text, \"^(.+?)\\s+has sent\", 1)))"
+            },
+            {
+              "uuid": "9113d4bf-c032-443b-9382-a547dc30d5ff",
+              "type": "set_run_result",
+              "name": "party_mask",
+              "category": "All",
+              "value": ""
+            },
+            {
+              "uuid": "09e3625b-fae0-42c4-95db-30aaf93285ea",
+              "type": "set_run_result",
+              "name": "party_number",
+              "category": "All",
+              "value": ""
+            },
+            {
+              "uuid": "0b7cec1d-6c32-4acc-a196-7179995855a5",
+              "type": "set_run_result",
+              "name": "party_number",
+              "category": "All",
+              "value": ""
+            },
+            {
+              "uuid": "b8ca84f9-d793-4fe4-aa3e-86c445e25107",
+              "type": "set_run_result",
+              "name": "bank_ref",
+              "category": "All",
+              "value": "@(regex_match(input.text, \"reference is\\s*([A-Z0-9]+)\", 1))"
+            },
+            {
+              "uuid": "f8dbcc07-df10-4281-bbe6-204cc49ce795",
+              "type": "set_run_result",
+              "name": "aggregator",
+              "category": "All",
+              "value": ""
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "758c24e0-1494-4fdb-9a47-338855ff1266",
+              "destination_uuid": "e2f36768-ef80-4349-97fc-f79a217f7cf7"
+            }
+          ]
+        },
+        {
+          "uuid": "931736e8-adcd-4426-ad51-94d6b5417bcb",
+          "actions": [
+            {
+              "uuid": "50ccf098-f6c4-4440-8b4a-c69bd58dd343",
+              "type": "set_run_result",
+              "name": "receipt",
+              "category": "All",
+              "value": "@(regex_match(input.text, \"M-PESA Ref\\s*([A-Z0-9]+)\", 1))"
+            },
+            {
+              "uuid": "5e88c3f0-6a2c-458a-95ed-c99c6ba127d1",
+              "type": "set_run_result",
+              "name": "amount",
+              "category": "All",
+              "value": "@(replace(regex_match(input.text, \"KES\\s*([0-9,]+\\.?[0-9]*)\", 1), \",\", \"\"))"
+            },
+            {
+              "uuid": "cbea85b2-211f-426b-a118-a0f9d77e7f62",
+              "type": "set_run_result",
+              "name": "party_name",
+              "category": "All",
+              "value": "@(trim(regex_match(input.text, \"from\\s+(.+?)\\.\\s*M-PESA Ref\", 1)))"
+            },
+            {
+              "uuid": "98948d0b-520b-48b3-ae7d-46947708fc29",
+              "type": "set_run_result",
+              "name": "party_mask",
+              "category": "All",
+              "value": ""
+            },
+            {
+              "uuid": "a1ea6b44-eedf-499f-86e1-6192c3ca45b2",
+              "type": "set_run_result",
+              "name": "party_number",
+              "category": "All",
+              "value": ""
+            },
+            {
+              "uuid": "cd8b0b88-d64b-48a5-a11b-fe74295a2443",
+              "type": "set_run_result",
+              "name": "bank_ref",
+              "category": "All",
+              "value": "@(regex_match(input.text, \"Transaction Ref No\\s*([A-Z0-9]+)\", 1))"
+            },
+            {
+              "uuid": "d46e84b8-f296-44c0-b813-66cb0276f605",
+              "type": "set_run_result",
+              "name": "aggregator",
+              "category": "All",
+              "value": ""
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "4a8c263f-60d8-4386-a896-9017ed485e35",
+              "destination_uuid": "e2f36768-ef80-4349-97fc-f79a217f7cf7"
+            }
+          ]
+        },
+        {
+          "uuid": "e2f36768-ef80-4349-97fc-f79a217f7cf7",
+          "actions": [
+            {
+              "uuid": "4f66cf6c-e9f8-4655-94f5-b2f6e8e5d5b7",
+              "type": "call_webhook",
+              "method": "POST",
+              "url": "http://host.docker.internal:5000/payment",
+              "headers": {
+                "Content-Type": "application/json"
+              },
+              "body": "{\"receipt\":\"@results.receipt.value\",\"bank_ref\":\"@results.bank_ref.value\",\"amount\":\"@results.amount.value\",\"direction\":\"in\",\"party_name\":\"@results.party_name.value\",\"party_mask\":\"@results.party_mask.value\",\"party_number\":\"@results.party_number.value\",\"aggregator\":\"@results.aggregator.value\"}",
+              "result_name": "pay"
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "8c1ef75e-441c-4c03-81d3-f1dd95c68d65",
+              "destination_uuid": "f528af1e-c9f3-4998-997f-1a929171ca02"
+            }
+          ]
+        },
+        {
+          "uuid": "f528af1e-c9f3-4998-997f-1a929171ca02",
+          "router": {
+            "type": "switch",
+            "operand": "@results.pay.extra.action",
+            "cases": [
+              {
+                "arguments": [
+                  "credit"
+                ],
+                "type": "has_only_text",
+                "uuid": "8667a8ff-89b2-4c3b-bf88-bd73322d9e47",
+                "category_uuid": "19f26731-44ad-466e-9d1a-d2f849efe4ce"
+              }
+            ],
+            "categories": [
+              {
+                "name": "Credit",
+                "uuid": "19f26731-44ad-466e-9d1a-d2f849efe4ce",
+                "exit_uuid": "e0a75ef1-e0be-4cdc-9c51-4779ecef4d1f"
+              },
+              {
+                "name": "Other",
+                "uuid": "e7c82875-c7d5-4e70-acfc-446f05a00861",
+                "exit_uuid": "3d207aa2-bec7-483a-9517-6b3626ef051f"
+              }
+            ],
+            "default_category_uuid": "e7c82875-c7d5-4e70-acfc-446f05a00861",
+            "uuid": "bd1845c4-75bb-43ef-8372-8cfb2f41a5b5"
+          },
+          "exits": [
+            {
+              "uuid": "e0a75ef1-e0be-4cdc-9c51-4779ecef4d1f",
+              "destination_uuid": "171bbac8-096c-4dfe-8ce1-35277abc0a25"
+            },
+            {
+              "uuid": "3d207aa2-bec7-483a-9517-6b3626ef051f",
+              "destination_uuid": null
+            }
+          ]
+        },
+        {
+          "uuid": "171bbac8-096c-4dfe-8ce1-35277abc0a25",
+          "actions": [
+            {
+              "uuid": "c995b07c-d096-40ac-9391-f8bda521e977",
+              "type": "start_session",
+              "flow": {
+                "uuid": "4a32b46d-215d-4831-86d8-2560fdd65d90",
+                "name": "Add JengaPoints"
+              },
+              "contact_query": "uuid = @results.pay.extra.person.contact_uuid"
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "f88f3b40-ad8e-45fa-b59c-555373cb1ced",
+              "destination_uuid": null
+            }
+          ]
+        }
+      ],
+      "_ui": {
+        "nodes": {
+          "31033f53-80b7-4f65-8633-11032a7ce68f": {
+            "type": "split_by_expression",
+            "position": {
+              "left": 100,
+              "top": 60
+            }
+          },
+          "dc7fd303-b9d8-470d-ab25-d1b4f49f3eaa": {
+            "type": "split_by_expression",
+            "position": {
+              "left": 0,
+              "top": 220
+            }
+          },
+          "5ec4cbc8-8e9d-42c0-b674-a1755511a984": {
+            "type": "execute_actions",
+            "position": {
+              "left": -160,
+              "top": 400
+            }
+          },
+          "06906418-6fa6-4966-87c9-a4b5ea52d17d": {
+            "type": "execute_actions",
+            "position": {
+              "left": 100,
+              "top": 400
+            }
+          },
+          "f193c59f-b1ca-4d90-8fcb-068cd39acb2d": {
+            "type": "execute_actions",
+            "position": {
+              "left": 360,
+              "top": 400
+            }
+          },
+          "931736e8-adcd-4426-ad51-94d6b5417bcb": {
+            "type": "execute_actions",
+            "position": {
+              "left": 520,
+              "top": 400
+            }
+          },
+          "e2f36768-ef80-4349-97fc-f79a217f7cf7": {
+            "type": "execute_actions",
+            "position": {
+              "left": 100,
+              "top": 620
+            }
+          },
+          "f528af1e-c9f3-4998-997f-1a929171ca02": {
+            "type": "split_by_expression",
+            "position": {
+              "left": 100,
+              "top": 760
+            }
+          },
+          "171bbac8-096c-4dfe-8ce1-35277abc0a25": {
+            "type": "execute_actions",
+            "position": {
+              "left": 100,
+              "top": 920
+            }
+          }
+        }
+      },
+      "revision": 1,
+      "expire_after_minutes": 10080
+    },
+    {
+      "name": "Add JengaPoints",
+      "uuid": "4a32b46d-215d-4831-86d8-2560fdd65d90",
+      "spec_version": "13.2.0",
+      "language": "eng",
+      "type": "messaging",
+      "nodes": [
+        {
+          "uuid": "325fa6b5-fb3c-43c6-a0fa-f07907637a19",
+          "actions": [
+            {
+              "uuid": "3bdd7cd4-4490-4ef4-9da5-46ee3767f78d",
+              "type": "set_run_result",
+              "name": "points",
+              "category": "All",
+              "value": "@(default(fields.jengapoints, 0) + number(default(parent.results.amount.value, 0)))"
+            },
+            {
+              "uuid": "92d41999-9a1b-4f42-8da0-95a5c350f0f2",
+              "type": "set_contact_field",
+              "field": {
+                "key": "jengapoints",
+                "name": "JengaPoints"
+              },
+              "value": "@results.points.value"
+            },
+            {
+              "uuid": "87df522f-65d3-466c-88ef-1c4124ae60a9",
+              "type": "send_broadcast",
+              "legacy_vars": [
+                "@parent.results.pay.extra.person.urn"
+              ],
+              "text": "Hello @(default(parent.results.pay.extra.person.name, parent.results.party_name.value))! We received your payment of Ksh @parent.results.amount.value (ref @(default(parent.results.receipt.value, parent.results.bank_ref.value))). Your JengaPoints are @results.points.value."
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "89a5e5e4-23a1-4574-bbcc-5ffaf391063c",
+              "destination_uuid": null
+            }
+          ]
+        }
+      ],
+      "_ui": {
+        "nodes": {
+          "325fa6b5-fb3c-43c6-a0fa-f07907637a19": {
+            "type": "execute_actions",
+            "position": {
+              "left": 0,
+              "top": 0
+            }
+          }
+        }
+      },
+      "revision": 1,
+      "expire_after_minutes": 10080
+    }
+  ],
+  "campaigns": [],
+  "triggers": [
+    {
+      "trigger_type": "C",
+      "flow": {
+        "uuid": "5b0d47cc-ff19-4e50-911d-7dcfdbe4c00f",
+        "name": "Mpesa Payment"
+      },
+      "channel": {
+        "uuid": "4c335860-00cb-4c05-844d-836d271facf5",
+        "name": "smsgateway"
+      },
+      "groups": [
+        {
+          "uuid": "99a4a5d2-b2e0-4bb4-a19a-24462af10c01",
+          "name": "PaymentAggregators"
+        }
+      ],
+      "exclude_groups": []
+    }
+  ],
+  "fields": [],
+  "groups": []
+}
