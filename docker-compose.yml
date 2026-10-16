@@ -176,6 +176,9 @@ services:
       <<: *rapidpro-env
     volumes:
       - sitestatic:/rapidpro/sitestatic
+      # Overlay the repo's settings so PUBLIC_DOMAIN/HOSTNAME/BRAND apply without a
+      # full image rebuild (the image bakes a copy; a future `docker compose build` does too).
+      - ./rapidpro/docker_settings.py:/rapidpro/temba/settings.py:ro
     networks:
       - rapidpro-app
       - rapidpro-data
@@ -201,6 +204,8 @@ services:
         condition: service_completed_successfully
     environment:
       <<: *rapidpro-env
+    volumes:
+      - ./rapidpro/docker_settings.py:/rapidpro/temba/settings.py:ro
     networks:
       - rapidpro-app
       - rapidpro-data
@@ -220,6 +225,8 @@ services:
         condition: service_completed_successfully
     environment:
       <<: *rapidpro-env
+    volumes:
+      - ./rapidpro/docker_settings.py:/rapidpro/temba/settings.py:ro
     networks:
       - rapidpro-app
       - rapidpro-data
@@ -377,6 +384,19 @@ services:
     networks:
       - rapidpro-data
     restart: unless-stopped
+
+  # Permanent Cloudflare Tunnel connector for the "msg" tunnel (msg.ubuviz.com).
+  # The tunnel is remote-managed: the public hostname/ingress (msg.ubuviz.com ->
+  # http://localhost:80) is configured in the Cloudflare dashboard; this only runs
+  # the connector. Uses host networking so it can reach nginx on 127.0.0.1:80.
+  # Token comes from .env (CLOUDFLARE_TUNNEL_TOKEN); empty disables the service.
+  cloudflared:
+    image: cloudflare/cloudflared@sha256:a15a3b50b8dabd57ac2090e9484c0247dba9dfa1f0df4d298d4317f9d69eb2d5
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      - nginx
 
 networks:
   # egress-capable network for the app services and nginx
