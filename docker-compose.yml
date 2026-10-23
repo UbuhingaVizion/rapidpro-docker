@@ -93,7 +93,7 @@ services:
       timeout: 5s
 
   redis:
-    image: redis:7.2-alpine@sha256:29e8589c3f9ba699b5f7aa4b3c7733c58852a3626439e619aa0ee78de08c6ca0
+    image: redis:7.2-alpine@sha256:f8548b29a1f1cb358b5fcfec1e0126beab57ad15776c1e87623f865579f16c5a
     command: redis-server --save 60 1 --loglevel ${REDIS_LOG_LEVEL:-warning}
     volumes:
       - redis:/data
@@ -155,7 +155,7 @@ services:
       context: ./rapidpro/
       args:
         - RAPIDPRO_REPO=UbuhingaVizion/rapidpro
-        - RAPIDPRO_REF=v9.0.0-ubuviz.2
+        - RAPIDPRO_REF=v9.0.0-ubuviz.3
     command: ["webapp"]
     depends_on:
       postgres:
@@ -194,7 +194,7 @@ services:
       context: ./rapidpro/
       args:
         - RAPIDPRO_REPO=UbuhingaVizion/rapidpro
-        - RAPIDPRO_REF=v9.0.0-ubuviz.2
+        - RAPIDPRO_REF=v9.0.0-ubuviz.3
     command: ["worker"]
     restart: unless-stopped
     depends_on:
@@ -215,7 +215,7 @@ services:
       context: ./rapidpro/
       args:
         - RAPIDPRO_REPO=UbuhingaVizion/rapidpro
-        - RAPIDPRO_REF=v9.0.0-ubuviz.2
+        - RAPIDPRO_REF=v9.0.0-ubuviz.3
     command: ["beat"]
     restart: unless-stopped
     depends_on:

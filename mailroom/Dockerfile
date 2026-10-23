@@ -5,7 +5,7 @@
 # from the AGPL UbuhingaVizion fork of rapidpro/mailroom; that fork retains the
 # Surveyor submission endpoint (POST /mr/surveyor/submit) which BSL
 # nyaruka/mailroom dropped in v9.1.10.
-FROM golang:1.26-bookworm@sha256:a688600ca24f8a4d3ca77f95b0dd40704a9fc787c826660eb7ba0b641b8b175d AS build
+FROM golang:1.26-bookworm@sha256:632dff7351799a5a9954a48dc06670ade72ee44e8c351cdc0e5a57af2fea21af AS build
 
 # v9.0.0-ubuviz.1 == branch master @ f5a174684b8573d1fafc5df760c2abe8728efd10
 ARG MAILROOM_REPO=UbuhingaVizion/mailroom

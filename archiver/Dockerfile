@@ -2,7 +2,7 @@
 
 # nyaruka publishes a prebuilt rp-archiver binary; it is glibc-dynamic, so we keep
 # a glibc runtime (distroless/base has glibc + ca-certificates + tzdata, no shell).
-FROM debian:bookworm-slim@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251 AS tools
+FROM debian:bookworm-slim@sha256:7ff6ba31527b9e336162fa061746c366c4b2032f4d2cff2078bea43f78efe3f8 AS tools
 
 ARG ARCHIVER_REF=v26.0.1
 

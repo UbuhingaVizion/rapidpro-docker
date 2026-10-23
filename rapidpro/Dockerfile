@@ -15,12 +15,12 @@
 FROM node:20-bookworm-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0 AS node
 
 # ---- builder: venv + front-end assets ------------------------------------
-FROM python:3.12-slim-bookworm@sha256:392307d22300de8b5986851a12d9176dfc0fc073e65bf6523ebd7dcbeb23564e AS builder
+FROM python:3.12-slim-bookworm@sha256:6a0e06f5ba0b373d051aabd3fffb9b873f27f9a2a3a14bcbe37dee6f0e3bbc70 AS builder
 
 # RapidPro source is fetched at a pinned ref from the UbuhingaVizion fork.
-# v9.0.0-ubuviz.1 == branch modern @ 8a567d0d780e8a24789851cf8a5b3c3761bdf4a2
+# v9.0.0-ubuviz.3 == branch develop @ ebf68cbb406939ac5ebdb8673105bbd845eb3e4c
 ARG RAPIDPRO_REPO=UbuhingaVizion/rapidpro
-ARG RAPIDPRO_REF=v9.0.0-ubuviz.1
+ARG RAPIDPRO_REF=v9.0.0-ubuviz.3
 
 # build deps only (dev headers, compilers). Tests upstream use libgdal-dev etc.
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -69,7 +69,7 @@ RUN yarn install --frozen-lockfile --production --non-interactive
 RUN npm install -g --prefix /opt/less less
 
 # ---- runtime -------------------------------------------------------------
-FROM python:3.12-slim-bookworm@sha256:392307d22300de8b5986851a12d9176dfc0fc073e65bf6523ebd7dcbeb23564e AS runtime
+FROM python:3.12-slim-bookworm@sha256:6a0e06f5ba0b373d051aabd3fffb9b873f27f9a2a3a14bcbe37dee6f0e3bbc70 AS runtime
 
 # runtime shared libraries only - no -dev headers, no node/npm
 RUN apt-get update && apt-get install -y --no-install-recommends \
