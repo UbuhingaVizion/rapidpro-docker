@@ -30,7 +30,7 @@ jobs:
           assert args('courier')['COURIER_REF'] == 'v9.1.19', args('courier')
           assert args('indexer')['INDEXER_REF'] == 'v26.0.1', args('indexer')
           assert args('archiver')['ARCHIVER_REF'] == 'v26.0.1', args('archiver')
-          assert 'elasticsearch:7.17.9' in svcs['elastic']['image'], svcs['elastic']['image']
+          assert 'elasticsearch:7.17.28' in svcs['elastic']['image'], svcs['elastic']['image']
           assert '16-3.5-alpine' in svcs['postgres']['image'], svcs['postgres']['image']
           assert '7.2-alpine' in svcs['redis']['image'], svcs['redis']['image']
           print('rapidpro-docker version locks OK')

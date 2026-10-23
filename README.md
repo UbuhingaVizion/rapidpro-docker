@@ -18,7 +18,7 @@ v9.0.0, Django 5.2), with the Go service versions chosen to match its schema. It
 | Courier | `v9.1.19` (AGPL) | newest Courier speaking the `UbuhingaVizion` mailroom fork's protocol (task carries `org_id`, per-event channel types) |
 | rp-indexer | `v26.0.1` (AGPL) | matches the 9.0.0-era schema (ES7) |
 | rp-archiver | `v26.0.1` (AGPL) | archives old runs/messages to `temba-archives` (optional for Surveyor) |
-| Elasticsearch | `7.17.9` | RapidPro CI version (ES7) |
+| Elasticsearch | `7.17.28` | RapidPro CI version (ES7) |
 | PostgreSQL | `postgis/postgis:16-3.5-alpine` | matches RapidPro modern CI |
 | Redis | `7.2-alpine` | matches RapidPro modern CI |
 | SeaweedFS | `4.47` | S3-compatible object store for media/attachments |

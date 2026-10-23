@@ -19,7 +19,7 @@
 - RapidPro: fork `UbuhingaVizion/rapidpro` @ **`v9.0.0-ubuviz.3`** (branch `develop`, merged from `modern`), set via compose build args `RAPIDPRO_REPO`/`RAPIDPRO_REF`.
 - Mailroom: fork `UbuhingaVizion/mailroom` @ **`v9.0.0-ubuviz.1`** (branch `master`; AGPL, surveyor-capable), set via compose build args `MAILROOM_REPO`/`MAILROOM_REF`. The Dockerfiles `git clone --branch` these tags at build time.
 - Courier `v9.1.19` (AGPL): the newest Courier that speaks the mailroom fork's protocol. `v9.1.20` changed the mailroom task payload, `v9.1.21` collapsed channel events into a single `channel_event` type, and `v9.3.18` renamed the queue (`handler` → `tasks:handler`); none of those are understood by the fork. rp-indexer `v26.0.1` (AGPL), rp-archiver `v26.0.1` (AGPL).
-- Elasticsearch `7.17.9`, PostGIS `16-3.5-alpine`, Redis `7.2-alpine`, SeaweedFS `4.47`.
+- Elasticsearch `7.17.28`, PostGIS `16-3.5-alpine`, Redis `7.2-alpine`, SeaweedFS `4.47`.
 - Pins are duplicated in `docker-compose.yml` build args, `.github/workflows/gate.yml` asserts, and the README table. Change all three together. Bumping a fork pin means creating+pushing a new tag first.
 - Base/service images are also **pinned by digest**: service digests in `docker-compose.yml`, build-stage digests in the Dockerfiles. Bump deliberately.
 - Go builds: `mailroom` compiles from the pinned fork tag with `golang:1.26` (`CGO_ENABLED=0` → static, runs on `alpine:3.20`); `courier`/`indexer`/`archiver` download prebuilt release binaries, which are glibc-dynamic, so they run on `gcr.io/distroless/base-debian12` (not Alpine).
