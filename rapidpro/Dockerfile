@@ -11,8 +11,8 @@
 # user (gosu). Base images are pinned by digest.
 # ---------------------------------------------------------------------------
 
-# node 20 (matches RapidPro CI) - used only to install front-end assets
-FROM node:20-bookworm-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0 AS node
+# node 22 (the security-updated JS deps require >=22, e.g. postcss-cli 12) - front-end assets
+FROM node:22-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS node
 
 # ---- builder: venv + front-end assets ------------------------------------
 FROM python:3.12-slim-bookworm@sha256:6a0e06f5ba0b373d051aabd3fffb9b873f27f9a2a3a14bcbe37dee6f0e3bbc70 AS builder

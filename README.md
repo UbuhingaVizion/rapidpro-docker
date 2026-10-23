@@ -95,7 +95,7 @@ stack smoke test is run manually on a docker-capable host (see the script commen
   (branch `modern`), fetched with `git clone --branch` in the builder (compose build args
   `RAPIDPRO_REPO`/`RAPIDPRO_REF`). This repo overlays `rapidpro/docker_settings.py` (copied
   to `temba/settings.py`) and `rapidpro/entrypoint.sh`. It is a **multi-stage build**: the builder
-  carries the `-dev` headers/compilers and Node 20, runs `uv sync --frozen --no-dev` and
+  carries the `-dev` headers/compilers and Node 22, runs `uv sync --frozen --no-dev` and
   `yarn install --frozen-lockfile --production` (RapidPro ships a yarn.lock); the runtime stage keeps
   only the shared libraries actually needed, the built venv, `node_modules` and the source. `node`
   plus a modern `lessc` are kept at runtime because django-compressor runs `lessc` while rendering

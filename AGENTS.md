@@ -57,5 +57,5 @@
 - The engine reads the RapidPro Postgres, so postgres is **published on `127.0.0.1:5432`** (`POSTGRES_BIND`/`POSTGRES_HOST_PORT`) and joins `rapidpro-edge` (see topology above). `MAILROOM_DISALLOWED_NETWORKS` (opt-in, drops only `172.16.0.0/12`) lets the flow reach the engine at `host.docker.internal:5000`.
 
 ## Node
-- The app image uses **Node 20** both to build assets (`yarn install --frozen-lockfile --production`; RapidPro ships a classic `yarn.lock`) and at runtime for django-compressor's `lessc` (a modern global `less` is installed to `/opt/less`). Keep Node 20 to match RapidPro CI.
+- The app image uses **Node 22** both to build assets (`yarn install --frozen-lockfile --production`; RapidPro ships a classic `yarn.lock`) and at runtime for django-compressor's `lessc` (a modern global `less` is installed to `/opt/less`). Keep Node 22: the security-updated JS deps (postcss-cli 12) require >=22 (the repo CI env still declares 20; bump it there too).
 - There is no Node 18 / Puppeteer E2E harness on this branch (the old `test/main.js` and `package.json` are gone); CI installs no Node.
