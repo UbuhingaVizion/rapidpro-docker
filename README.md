@@ -143,6 +143,7 @@ Set these in `.env` (or the host environment, e.g. `/etc/default/environment`) b
 | `COURIER_DOMAIN` | `app.ubuviz.com` | courier callback domain |
 | `PUBLIC_DOMAIN` | `app.ubuviz.com` | public hostname for outbound links + Django `HOSTNAME`/`BRAND` |
 | `RESEND_API_KEY` / `EMAIL_FROM` | `re_…` / `JengaMarket <no-reply@example.com>` | outbound email (Resend SMTP relay) for invitations/notifications and flow "Send Email"; `EMAIL_FROM` must be on a Resend-verified domain |
+| `SENTRY_ENVIRONMENT` / `MAILROOM_SENTRY_DSN` / `COURIER_SENTRY_DSN` / `INDEXER_SENTRY_DSN` / `ARCHIVER_SENTRY_DSN` | `production` / `https://…@….ingest.sentry.io/…` | error reporting for the Go services (RapidPro itself has no SDK in the image); empty DSN disables it |
 | `POSTGRES_PASSWORD`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `MAILROOM_AUTH_TOKEN`, `MAILROOM_COURIER_AUTH_TOKEN`/`COURIER_AUTH_TOKEN` | strong random values | credentials (courier token pair must match) |
 | `NGINX_BIND` | `127.0.0.1` | bind nginx to loopback when a host TLS proxy fronts it |
 
@@ -165,6 +166,12 @@ Set these in `.env` (or the host environment, e.g. `/etc/default/environment`) b
   (postgres/redis/elastic/seaweedfs) publish nothing and live on the isolated `rapidpro-data`
   network.
 - **Statics**: nginx serves `/sitestatic/` from the `sitestatic` volume — no extra config needed.
+  Asset filenames are **not content-hashed** (plain static storage), so the location uses a short
+  `expires 1h`; a long TTL would keep browsers on the previous release's JS/CSS after a redeploy
+  (new HTML + old scripts → `ReferenceError`, dead components).
+- **Errors**: mailroom/courier/indexer/archiver ship `sentry-go` and are wired from
+  `*_SENTRY_DSN` + `SENTRY_ENVIRONMENT` (empty DSN disables). RapidPro/celery have no Sentry SDK
+  in the image, so Django 500s are only in the container logs.
 - **Media**: nginx serves `/media/` by proxying to SeaweedFS's `temba-attachments` bucket (public-read
   via bucket policy), so keep `STORAGE_URL` pointed at `https://<domain>/media`. The SeaweedFS S3
   port (8333) is intentionally not published; keep it internal.

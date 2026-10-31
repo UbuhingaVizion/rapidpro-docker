@@ -293,6 +293,10 @@ services:
       MAILROOM_LOG_LEVEL: "${MAILROOM_LOG_LEVEL:-info}"
       # Flow "Send Email" SMTP (org config overrides this). Same Resend relay as RapidPro.
       MAILROOM_SMTP_SERVER: "smtp://resend:${RESEND_API_KEY:-}@smtp.resend.com:587/?from=no-reply%40jengamarket.com&tls=true"
+      # Error reporting: sentry-go is built into mailroom (empty DSN disables it).
+      MAILROOM_SENTRY_DSN: "${MAILROOM_SENTRY_DSN:-}"
+      # sentry-go reads this UNPREFIXED env var for the event environment tag.
+      SENTRY_ENVIRONMENT: "${SENTRY_ENVIRONMENT:-production}"
     networks:
       - rapidpro-app
       - rapidpro-data
@@ -347,6 +351,9 @@ services:
       COURIER_S3_DISABLE_SSL: "true"
       COURIER_S3_FORCE_PATH_STYLE: "true"
       COURIER_LOG_LEVEL: "${COURIER_LOG_LEVEL:-info}"
+      # Error reporting: sentry-go is built into courier (empty DSN disables it).
+      COURIER_SENTRY_DSN: "${COURIER_SENTRY_DSN:-}"
+      SENTRY_ENVIRONMENT: "${SENTRY_ENVIRONMENT:-production}"
     networks:
       - rapidpro-app
       - rapidpro-data
@@ -369,6 +376,9 @@ services:
       INDEXER_DB: "postgres://${POSTGRES_USER:-temba}:${POSTGRES_PASSWORD:-tembatemba}@postgres:5432/${POSTGRES_DB:-temba}?sslmode=disable"
       INDEXER_ELASTIC_URL: "${ELASTICSEARCH_URL:-http://elastic:9200}"
       INDEXER_LOG_LEVEL: "${INDEXER_LOG_LEVEL:-info}"
+      # Error reporting (rp-indexer exposes -sentry-dsn as INDEXER_SENTRY_DSN).
+      INDEXER_SENTRY_DSN: "${INDEXER_SENTRY_DSN:-}"
+      SENTRY_ENVIRONMENT: "${SENTRY_ENVIRONMENT:-production}"
     networks:
       - rapidpro-data
 
@@ -397,6 +407,9 @@ services:
       ARCHIVER_RETENTION_PERIOD: "${ARCHIVER_RETENTION_PERIOD:-90}"
       ARCHIVER_DELETE: "${ARCHIVER_DELETE:-false}"
       ARCHIVER_LOG_LEVEL: "${ARCHIVER_LOG_LEVEL:-info}"
+      # Error reporting (rp-archiver exposes -sentry-dsn as ARCHIVER_SENTRY_DSN).
+      ARCHIVER_SENTRY_DSN: "${ARCHIVER_SENTRY_DSN:-}"
+      SENTRY_ENVIRONMENT: "${SENTRY_ENVIRONMENT:-production}"
     networks:
       - rapidpro-data
     restart: unless-stopped
