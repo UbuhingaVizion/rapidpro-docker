@@ -142,8 +142,17 @@ Set these in `.env` (or the host environment, e.g. `/etc/default/environment`) b
 | `MAILROOM_DOMAIN` / `MAILROOM_ATTACHMENT_DOMAIN` | `app.ubuviz.com` | mailroom-generated URLs |
 | `COURIER_DOMAIN` | `app.ubuviz.com` | courier callback domain |
 | `PUBLIC_DOMAIN` | `app.ubuviz.com` | public hostname for outbound links + Django `HOSTNAME`/`BRAND` |
+| `RESEND_API_KEY` / `EMAIL_FROM` | `re_…` / `JengaMarket <no-reply@example.com>` | outbound email (Resend SMTP relay) for invitations/notifications and flow "Send Email"; `EMAIL_FROM` must be on a Resend-verified domain |
 | `POSTGRES_PASSWORD`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `MAILROOM_AUTH_TOKEN`, `MAILROOM_COURIER_AUTH_TOKEN`/`COURIER_AUTH_TOKEN` | strong random values | credentials (courier token pair must match) |
 | `NGINX_BIND` | `127.0.0.1` | bind nginx to loopback when a host TLS proxy fronts it |
+
+- **Email**: `SEND_EMAILS` is on and RapidPro sends invitations/notifications through the **Resend
+  SMTP relay** (`EMAIL_*` overrides in `rapidpro/docker_settings.py`, since `settings_common` hardcodes
+  `smtp.gmail.com`). Template emails take their sender from `branding.emails.notifications`, which
+  defaults to `support@rapidpro.io` — pinned to `EMAIL_FROM` (or `NOTIFICATIONS_FROM_EMAIL`) so the
+  relay accepts it. Flow "Send Email" is sent by **mailroom**, not Django: it uses the org SMTP config
+  in the UI, falling back to `MAILROOM_SMTP_SERVER` (built from `RESEND_API_KEY`). Courier sends no
+  email, and v9.0.0 has no password-reset email (admins set passwords).
 
 - **Channels**: `docker compose up -d` starts **Courier** by default (no profile needed). The pinned
   `v9.1.19` speaks the mailroom fork's protocol, so inbound messages flow with **no schema shims and

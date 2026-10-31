@@ -60,6 +60,14 @@ DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", DEFAULT_FROM_EMAIL)
 SERVER_EMAIL = os.environ.get("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
 FLOW_FROM_EMAIL = os.environ.get("FLOW_FROM_EMAIL", FLOW_FROM_EMAIL)
 
+# Template emails (invitations, notifications, ...) take their sender from
+# branding.emails.notifications (temba/utils/email.py: send_template_email) and only fall
+# back to DEFAULT_FROM_EMAIL when it's missing. settings_common's BRAND points that at
+# support@rapidpro.io, which the relay rejects (unverified domain), so pin it to our own
+# sender. Set NOTIFICATIONS_FROM_EMAIL to use a different verified address for these.
+NOTIFICATIONS_FROM_EMAIL = os.environ.get("NOTIFICATIONS_FROM_EMAIL", "").strip() or DEFAULT_FROM_EMAIL
+BRAND = {**BRAND, "emails": {**BRAND.get("emails", {}), "notifications": NOTIFICATIONS_FROM_EMAIL}}
+
 # -----------------------------------------------------------------------------------
 # HTTPS / cookie / password hardening.
 #
