@@ -383,6 +383,13 @@ services:
       - rapidpro-data
 
   archiver:
+    # Parked: nothing is older than ARCHIVER_RETENTION_PERIOD yet (msg/run data starts
+    # 2026-10), and the pinned rp-archiver v26.0.1 expects the *new* archives_archive
+    # schema (uuid + location) while RapidPro v9.0.0 still has `url` — so every nightly
+    # 00:01 run logs 2 spurious ERRORs. Start it when the DB actually needs archiving:
+    #   docker compose --profile archiving up -d archiver
+    # (and switch ARCHIVER_REF to v10.3.3, the newest tag with the `url` schema.)
+    profiles: ["archiving"]
     build:
       context: ./archiver
       args:
@@ -395,13 +402,15 @@ services:
     environment:
       ARCHIVER_DB: "postgres://${POSTGRES_USER:-temba}:${POSTGRES_PASSWORD:-tembatemba}@postgres:5432/${POSTGRES_DB:-temba}?sslmode=disable"
       ARCHIVER_S3_ENDPOINT: "${S3_ENDPOINT_URL:-http://seaweedfs:8333}"
-      ARCHIVER_S3_REGION: "${S3_REGION:-us-east-1}"
+      # rp-archiver's env names differ from mailroom/courier: it is ARCHIVER_AWS_REGION and
+      # ARCHIVER_S3_PATH_STYLE (there is no S3_REGION / S3_FORCE_PATH_STYLE / S3_DISABLE_SSL /
+      # UPLOAD_TO_S3). Without path style it addresses SeaweedFS as
+      # <bucket>.seaweedfs:8333, which does not resolve -> "s3 bucket not reachable".
+      ARCHIVER_AWS_REGION: "${S3_REGION:-us-east-1}"
+      ARCHIVER_S3_PATH_STYLE: "true"
       ARCHIVER_S3_BUCKET: "temba-archives"
-      ARCHIVER_S3_DISABLE_SSL: "true"
-      ARCHIVER_S3_FORCE_PATH_STYLE: "true"
       ARCHIVER_AWS_ACCESS_KEY_ID: "${S3_ACCESS_KEY:-root}"
       ARCHIVER_AWS_SECRET_ACCESS_KEY: "${S3_SECRET_KEY:-tembatemba}"
-      ARCHIVER_UPLOAD_TO_S3: "true"
       ARCHIVER_ARCHIVE_MESSAGES: "${ARCHIVER_ARCHIVE_MESSAGES:-true}"
       ARCHIVER_ARCHIVE_RUNS: "${ARCHIVER_ARCHIVE_RUNS:-true}"
       ARCHIVER_RETENTION_PERIOD: "${ARCHIVER_RETENTION_PERIOD:-90}"

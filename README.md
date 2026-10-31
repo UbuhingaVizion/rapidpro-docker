@@ -17,7 +17,7 @@ v9.0.0, Django 5.2), with the Go service versions chosen to match its schema. It
 | Mailroom | fork `UbuhingaVizion/mailroom` @ `v9.0.0-ubuviz.1` | surveyor-capable; retains `POST /mr/surveyor/submit` (BSL `nyaruka/mailroom` removed it in `v9.1.10`) |
 | Courier | `v9.1.19` (AGPL) | newest Courier speaking the `UbuhingaVizion` mailroom fork's protocol (task carries `org_id`, per-event channel types) |
 | rp-indexer | `v26.0.1` (AGPL) | matches the 9.0.0-era schema (ES7) |
-| rp-archiver | `v26.0.1` (AGPL) | archives old runs/messages to `temba-archives` (optional for Surveyor) |
+| rp-archiver | `v26.0.1` (AGPL) | archives old runs/messages to `temba-archives` (optional for Surveyor; **parked** behind the `archiving` profile — see below) |
 | Elasticsearch | `7.17.28` | RapidPro CI version (ES7) |
 | PostgreSQL | `postgis/postgis:16-3.5-alpine` | matches RapidPro modern CI |
 | Redis | `7.2-alpine` | matches RapidPro modern CI |
@@ -39,7 +39,7 @@ v9.0.0, Django 5.2), with the Go service versions chosen to match its schema. It
   `v9.3.18` renamed the queue (`handler` → `tasks:handler`) — none of which the fork understands.
   rp-indexer/rp-archiver are `v26.0.1`.
 
-Includes: RapidPro webapp + celery, Mailroom, Courier, rp-indexer, rp-archiver, nginx, PostgreSQL
+Includes: RapidPro webapp + celery, Mailroom, Courier, rp-indexer, nginx, PostgreSQL
 (PostGIS), Redis, SeaweedFS (S3-compatible object store). These containers are for development/test
 use; production hardening is handled in later stages.
 
@@ -117,7 +117,10 @@ stack smoke test is run manually on a docker-capable host (see the script commen
   one-shot creates `temba-archives`/`temba-attachments`/`temba-logs`/`temba-sessions` and applies a
   public-read bucket policy to `temba-attachments` (Surveyor downloads media by URL). The S3 port
   (8333) is internal only; nginx proxies `/media/` to that bucket so media URLs are served from the
-  same public origin. `temba-archives` is used only by rp-archiver.
+  same public origin. `temba-archives` is used only by rp-archiver, which is **parked** behind
+  `docker compose --profile archiving up -d archiver`: nothing is older than the 90-day retention yet,
+  and `v26.0.1` expects the newer `archives_archive` schema (`uuid`/`location`) while RapidPro v9.0.0
+  has `url`, so it would log nightly errors without archiving anything. Pin `v10.3.3` before enabling.
 - **Background jobs** run as two containers: `celery` (worker, `celery -A temba worker`) and
   `celerybeat` (scheduler, `celery -A temba beat`), split so beat runs exactly once even if you scale
   workers. `docker_settings.py` sets `CELERY_TASK_ALWAYS_EAGER = False`, so tasks queue to Redis.
