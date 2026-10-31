@@ -1,0 +1,10 @@
+# Ingress for the Cloudflare Tunnel connector (compose service `cloudflared`).
+# The tunnel is token-managed, but cloudflared still honours a local ingress map;
+# this routes the public hostname to the stack's nginx on the host loopback.
+#
+# The connector runs with `network_mode: host`, so 127.0.0.1:80 == the host's
+# published nginx (the only edge for the stack).
+ingress:
+  - hostname: msg.ubuviz.com
+    service: http://127.0.0.1:80
+  - service: http_status:404
