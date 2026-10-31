@@ -36,6 +36,20 @@ x-rapidpro-env: &rapidpro-env
   STORAGE_URL: "${STORAGE_URL:-http://localhost/media}"
   DJANGO_ALLOWED_HOSTS: "${DJANGO_ALLOWED_HOSTS:-*}"
   PUBLIC_DOMAIN: "${PUBLIC_DOMAIN:-}"
+  # Outbound email via the Resend SMTP relay (smtp.resend.com:587, user "resend",
+  # password = RESEND_API_KEY). Gated by SEND_EMAILS. See docker_settings.py.
+  SEND_EMAILS: "${SEND_EMAILS:-true}"
+  EMAIL_BACKEND: "${EMAIL_BACKEND:-django.core.mail.backends.smtp.EmailBackend}"
+  EMAIL_HOST: "${EMAIL_HOST:-smtp.resend.com}"
+  EMAIL_PORT: "${EMAIL_PORT:-587}"
+  EMAIL_HOST_USER: "${EMAIL_HOST_USER:-resend}"
+  EMAIL_HOST_PASSWORD: "${RESEND_API_KEY:-}"
+  EMAIL_USE_TLS: "${EMAIL_USE_TLS:-true}"
+  EMAIL_USE_SSL: "${EMAIL_USE_SSL:-false}"
+  EMAIL_TIMEOUT: "${EMAIL_TIMEOUT:-10}"
+  DEFAULT_FROM_EMAIL: "${EMAIL_FROM:-no-reply@jengamarket.com}"
+  SERVER_EMAIL: "${EMAIL_FROM:-no-reply@jengamarket.com}"
+  FLOW_FROM_EMAIL: "${FLOW_FROM_EMAIL:-JengaMarket <no-reply@jengamarket.com>}"
   DJANGO_SECURE_PROXY_SSL_HEADER: "${DJANGO_SECURE_PROXY_SSL_HEADER:-HTTP_X_FORWARDED_PROTO,https}"
   DJANGO_CSRF_TRUSTED_ORIGINS: "${DJANGO_CSRF_TRUSTED_ORIGINS:-https://*.ngrok-free.app,https://app.ubuviz.com}"
 
@@ -277,6 +291,8 @@ services:
       MAILROOM_S3_DISABLE_SSL: "true"
       MAILROOM_S3_FORCE_PATH_STYLE: "true"
       MAILROOM_LOG_LEVEL: "${MAILROOM_LOG_LEVEL:-info}"
+      # Flow "Send Email" SMTP (org config overrides this). Same Resend relay as RapidPro.
+      MAILROOM_SMTP_SERVER: "smtp://resend:${RESEND_API_KEY:-}@smtp.resend.com:587/?from=no-reply%40jengamarket.com&tls=true"
     networks:
       - rapidpro-app
       - rapidpro-data

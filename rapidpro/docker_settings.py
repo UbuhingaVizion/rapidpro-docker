@@ -40,6 +40,27 @@ if PUBLIC_DOMAIN:
     BRAND = {**BRAND, "domain": PUBLIC_DOMAIN, "hosts": [PUBLIC_DOMAIN]}
 
 # -----------------------------------------------------------------------------------
+# Outbound email (env-driven; settings_common hardcodes smtp.gmail.com).
+# All RapidPro email (invitations, notifications, Django mail) goes through this
+# backend and is gated by SEND_EMAILS (False by default -> nothing is sent).
+# Used here: the Resend SMTP relay (smtp.resend.com:587, user "resend",
+# password = the Resend API key). Flow "Send Email" is sent by mailroom instead,
+# via the org SMTP config or MAILROOM_SMTP_SERVER.
+# -----------------------------------------------------------------------------------
+SEND_EMAILS = os.environ.get("SEND_EMAILS", "false").lower() in ("1", "true", "yes")
+EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = os.environ.get("EMAIL_HOST", EMAIL_HOST)
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 25))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", EMAIL_HOST_USER)
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", EMAIL_HOST_PASSWORD)
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", str(EMAIL_USE_TLS)).lower() in ("1", "true", "yes")
+EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "false").lower() in ("1", "true", "yes")
+EMAIL_TIMEOUT = int(os.environ.get("EMAIL_TIMEOUT", EMAIL_TIMEOUT))
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", DEFAULT_FROM_EMAIL)
+SERVER_EMAIL = os.environ.get("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
+FLOW_FROM_EMAIL = os.environ.get("FLOW_FROM_EMAIL", FLOW_FROM_EMAIL)
+
+# -----------------------------------------------------------------------------------
 # HTTPS / cookie / password hardening.
 #
 # TLS terminates at the host edge, which forwards X-Forwarded-Proto: https (the
