@@ -169,7 +169,7 @@ services:
       context: ./rapidpro/
       args:
         - RAPIDPRO_REPO=UbuhingaVizion/rapidpro
-        - RAPIDPRO_REF=v9.0.0-ubuviz.3
+        - RAPIDPRO_REF=v9.0.0-ubuviz.4
     command: ["webapp"]
     depends_on:
       postgres:
@@ -213,7 +213,7 @@ services:
       context: ./rapidpro/
       args:
         - RAPIDPRO_REPO=UbuhingaVizion/rapidpro
-        - RAPIDPRO_REF=v9.0.0-ubuviz.3
+        - RAPIDPRO_REF=v9.0.0-ubuviz.4
     command: ["worker"]
     restart: unless-stopped
     depends_on:
@@ -238,7 +238,7 @@ services:
       context: ./rapidpro/
       args:
         - RAPIDPRO_REPO=UbuhingaVizion/rapidpro
-        - RAPIDPRO_REF=v9.0.0-ubuviz.3
+        - RAPIDPRO_REF=v9.0.0-ubuviz.4
     command: ["beat"]
     restart: unless-stopped
     depends_on:
