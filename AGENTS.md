@@ -3,7 +3,7 @@
 ## What this repo is
 - Dev/test-only Docker Compose stack for a **Surveyor-capable** RapidPro (fork `UbuhingaVizion/rapidpro-docker`, branch `feature/LocalStack`). No application source here.
 - It pins a matched **RapidPro v9.0.0 / AGPL** service train. Surveyor support comes from the AGPL `rapidpro/mailroom` fork (the BSL `nyaruka/mailroom` removed `/mr/surveyor/submit` in v9.1.10); courier is pinned to `v9.1.19` (the newest release whose mailroom task still carries `org_id` and uses the per-event channel types), rp-indexer/rp-archiver to their newest **AGPL** tags. Do not "upgrade" individual services.
-- RapidPro source is the fork `UbuhingaVizion/rapidpro` @ **`v9.0.0-ubuviz.4`** (branch `develop`, merged from `modern`): RapidPro v9.0.0, Django 5.2, Python 3.12, uv, plain Django templates, Surveyor kept. Its `AGENTS.md` is the source of truth for app-side coupling.
+- RapidPro source is the fork `UbuhingaVizion/rapidpro` @ **`v9.0.0-ubuviz.5`** (branch `develop`, merged from `modern`): RapidPro v9.0.0, Django 5.2, Python 3.12, uv, plain Django templates, Surveyor kept. Its `AGENTS.md` is the source of truth for app-side coupling.
 - Mailroom source is the fork `UbuhingaVizion/mailroom` @ **`v9.0.0-ubuviz.1`** (branch `master`; AGPL, surveyor-capable). Both are fetched with `git clone --branch` at build time — no sibling checkouts.
 
 ## Commands
@@ -16,7 +16,7 @@
 - No unit/lint/typecheck suite. `.github/workflows/ci.yml` only does `cp .env.example .env` → `docker compose config -q` → `docker compose build courier indexer archiver` (the full stack build is too heavy for hosted runners); do not invent more.
 
 ## Version locks (move as one train)
-- RapidPro: fork `UbuhingaVizion/rapidpro` @ **`v9.0.0-ubuviz.4`** (branch `develop`, merged from `modern`), set via compose build args `RAPIDPRO_REPO`/`RAPIDPRO_REF`.
+- RapidPro: fork `UbuhingaVizion/rapidpro` @ **`v9.0.0-ubuviz.5`** (branch `develop`, merged from `modern`), set via compose build args `RAPIDPRO_REPO`/`RAPIDPRO_REF`.
 - Mailroom: fork `UbuhingaVizion/mailroom` @ **`v9.0.0-ubuviz.1`** (branch `master`; AGPL, surveyor-capable), set via compose build args `MAILROOM_REPO`/`MAILROOM_REF`. The Dockerfiles `git clone --branch` these tags at build time.
 - Courier `v9.1.19` (AGPL): the newest Courier that speaks the mailroom fork's protocol. `v9.1.20` changed the mailroom task payload, `v9.1.21` collapsed channel events into a single `channel_event` type, and `v9.3.18` renamed the queue (`handler` → `tasks:handler`); none of those are understood by the fork. rp-indexer `v26.0.1` (AGPL), rp-archiver `v26.0.1` (AGPL) — **archiver is parked** behind the `archiving` profile (see gotchas).
 - Elasticsearch `7.17.28`, PostGIS `16-3.5-alpine`, Redis `7.2-alpine`, SeaweedFS `4.47`.
@@ -55,6 +55,16 @@
 - **Goflow rules (learned the hard way):** every element needs a valid UUID4; exit uuids must be unique (a switch category's `exit_uuid` must not collide with another node's exit); use lowercase `regex_match(text, pat, group)`; `start_session`/`send_broadcast` **don't** template `urns`; a `start_session` using `legacy_vars` trips goflow's `legacy_vars` issue ("use of expressions instead of contact query") — use **`contact_query`** for a dynamic recipient (it's evaluated and the query escaper quotes each expression value, so write `uuid = @results...uuid`, no literal quotes); webhook JSON is at `@results.<name>.extra.<key>`; editor node labels come from `_ui.nodes[<uuid>].type` (`execute_actions` for action nodes, `split_by_expression` for switch routers) — without it the editor shows "Missing".
 
 ## Other flows
+- **Operational flows:** `flows/operational_flows.json` ←
+  `scripts/build_operational_flows.py` (DCC code, four per-topic support cases,
+  order confirmation). Import with `scripts/import_operational_flows.py` inside
+  the container; it substitutes `__TUZ_WEBHOOK_BASE__`,
+  `__DCC_WEBHOOK_SECRET__` and `__RAPIDPRO_WEBHOOK_SECRET__` from the
+  environment. Keep the live UUIDs mapped in tuuziane `RAPIDPRO_FLOW_MAP`.
+- **Spec 13.2.0 (goflow 0.198) quirks:** `wait.timeout` is
+  `{seconds, category_uuid}`, not a number; `open_ticket` uses `body` and a
+  required `result_name` (the result value is the ticket UUID, no
+  `_new_ticket` local); every node needs at least one exit.
 - **Phone verification (OTP):** `flows/phone_verification.json` — one-node
   `send_msg` message flow (`@trigger.params.code`), no trigger; started by
   tuuziane's `apps/core/phone_verification.py`. Import with `Org.import_app`;
