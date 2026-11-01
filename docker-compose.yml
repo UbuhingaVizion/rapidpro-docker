@@ -193,6 +193,11 @@ services:
       # Overlay the repo's settings so PUBLIC_DOMAIN/HOSTNAME/BRAND apply without a
       # full image rebuild (the image bakes a copy; a future `docker compose build` does too).
       - ./rapidpro/docker_settings.py:/rapidpro/temba/settings.py:ro
+    # Keep the host gateway resolvable from management commands and any task that
+    # calls an on-host service (flows themselves execute in mailroom, which already
+    # carries this mapping).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - rapidpro-app
       - rapidpro-data
@@ -220,6 +225,10 @@ services:
       <<: *rapidpro-env
     volumes:
       - ./rapidpro/docker_settings.py:/rapidpro/temba/settings.py:ro
+    # Same host-gateway mapping as mailroom/courier so worker code can reach an
+    # on-host service (e.g. the smsgateway) if it ever needs to.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - rapidpro-app
       - rapidpro-data
