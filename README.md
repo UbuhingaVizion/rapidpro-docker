@@ -191,7 +191,8 @@ Set these in `.env` (or the host environment, e.g. `/etc/default/environment`) b
   dual-homed on `rapidpro-data` + `rapidpro-app` (egress). Elasticsearch is intentionally
   **unauthenticated** (no ES credentials are configured for rp-indexer/mailroom here); it is protected
   by isolation plus the lack of any published port.
-- **`/mr/` lockdown**: nginx only proxies `POST /mr/surveyor/submit`; every other `/mr/*` path returns
+- **`/mr/` lockdown**: nginx only proxies `POST /mr/surveyor/submit` and `GET /mr/docs/` (static
+  goflow editor docs fetched by the flow editor); every other `/mr/*` path returns
   `403`. RapidPro reaches the internal mailroom endpoints over the compose network
   (`MAILROOM_URL=http://mailroom:8090`), not through nginx. Open IVR/ticket callbacks explicitly (see
   the commented block in `nginx/default.conf`) only if those channels are used.
