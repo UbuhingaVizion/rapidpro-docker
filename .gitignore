@@ -4,3 +4,6 @@
 .env
 .env.local
 .env.*.local
+
+# trivy output (scripts/security_scan.sh)
+.security/

@@ -1,0 +1,109 @@
+name: Security
+
+# Vulnerability + SBOM scanning (Trivy).
+#
+# Kept separate from ci.yml on purpose: a CVE published upstream is not the
+# author's fault and must not block an unrelated PR, but it must be visible and
+# must fail a scheduled run. Policy (see README "Security"):
+#   * CRITICAL with a published fix  -> fails the build
+#   * HIGH/MEDIUM/LOW                -> reported to code scanning + job summary
+#   * anything accepted             -> .trivyignore.yaml, with a statement+expiry
+#
+# Local equivalent: ./scripts/security_scan.sh --include-built --sbom
+on:
+  push:
+    branches: [feature/LocalStack]
+  pull_request:
+  schedule:
+    - cron: "17 5 * * 1" # Mondays 05:17 UTC - catches CVEs published since the last push
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write # SARIF upload
+
+env:
+  TRIVY_VERSION: 0.76.1
+
+jobs:
+  repo:
+    name: Repo scan (secrets + misconfig)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Trivy
+        run: |
+          set -euo pipefail
+          base="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}"
+          curl -sSL -o /tmp/trivy.tgz "$base/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          curl -sSL -o /tmp/trivy.sums "$base/trivy_${TRIVY_VERSION}_checksums.txt"
+          (cd /tmp && grep "trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" trivy.sums | sha256sum -c -)
+          tar -xzf /tmp/trivy.tgz -C /usr/local/bin trivy
+          trivy --version
+
+      - name: Scan for committed secrets
+        run: trivy fs --scanners secret --severity HIGH,CRITICAL --exit-code 1 .
+
+      # .env.example, compose and the Dockerfiles: non-root users, exposed ports,
+      # privileged mode, hardcoded credentials, ...
+      - name: Scan infrastructure config
+        run: trivy config --severity HIGH,CRITICAL --ignorefile .trivyignore.yaml --exit-code 1 .
+
+  images:
+    name: Images (CRITICAL gate, SBOM)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Trivy
+        run: |
+          set -euo pipefail
+          base="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}"
+          curl -sSL -o /tmp/trivy.tgz "$base/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          curl -sSL -o /tmp/trivy.sums "$base/trivy_${TRIVY_VERSION}_checksums.txt"
+          (cd /tmp && grep "trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" trivy.sums | sha256sum -c -)
+          tar -xzf /tmp/trivy.tgz -C /usr/local/bin trivy
+          trivy --version
+
+      - name: Prepare .env
+        run: cp .env.example .env
+
+      # The service images that just download a release binary are cheap to build;
+      # rapidpro/mailroom compile from source and are too heavy for hosted runners,
+      # so their inputs (base images) are what CI gates here. Run the same script
+      # with --include-built locally or on a self-hosted runner to cover them.
+      - name: Build prebuilt-binary service images
+        run: docker compose build courier indexer archiver
+
+      - name: Scan images
+        run: ./scripts/security_scan.sh --include-built --sbom
+
+      - name: Upload SARIF to code scanning
+        if: always()
+        continue-on-error: true # no-op on repos without code scanning enabled
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: .security/combined.sarif
+          category: trivy-images
+
+      - name: Upload SBOMs (CycloneDX)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx
+          path: .security/*.cdx.json
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Upload scan reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-reports
+          path: |
+            .security/*.sarif
+            .security/*.json
+            .security/summary.txt
+          if-no-files-found: warn
+          retention-days: 30

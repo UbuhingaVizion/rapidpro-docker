@@ -21,8 +21,8 @@ v9.0.0, Django 5.2), with the Go service versions chosen to match its schema. It
 | Elasticsearch | `7.17.28` | RapidPro CI version (ES7) |
 | PostgreSQL | `postgis/postgis:16-3.5-alpine` | matches RapidPro modern CI |
 | Redis | `7.2-alpine` | matches RapidPro modern CI |
-| SeaweedFS | `4.47` | S3-compatible object store for media/attachments |
-| nginx | `nginxinc/nginx-unprivileged:1.27-alpine` (digest-pinned) | routes `/mr/` → mailroom |
+| SeaweedFS | `4.52` | S3-compatible object store for media/attachments |
+| nginx | `nginxinc/nginx-unprivileged:1.30-alpine` (digest-pinned) | routes `/mr/` → mailroom (1.30 = current stable branch) |
 
 ## Why this train
 
@@ -89,6 +89,46 @@ supported `spec_version` (11.x/13.x), and that `/mr/surveyor/submit` is **not** 
 CI (`.github/workflows/gate.yml`) validates the version locks and script syntax on push; the full
 stack smoke test is run manually on a docker-capable host (see the script comment).
 
+## Security scanning
+
+Container CVEs are tracked with **Trivy** (`.github/workflows/security.yml`, weekly on Mondays plus
+every push/PR):
+
+```bash
+# everything the stack runs (pinned images) + the locally built app images, with SBOMs
+./scripts/security_scan.sh --include-built --sbom
+# -> .security/summary.txt, per-image SARIF/JSON, combined.sarif, *.cdx.json
+```
+
+The script reads the image list straight from `docker-compose.yml`, so a pin bump is scanned without
+touching the script. Honours `TRIVY=/path/to/trivy` and `OUT_DIR=...`.
+
+**Gate policy**
+
+| Finding | Behaviour |
+|---|---|
+| CRITICAL **with a published fix** | fails the build |
+| CRITICAL with no fix available | reported only (nothing to move) |
+| HIGH / MEDIUM / LOW | reported to code scanning + job summary, does not fail |
+| accepted | must be listed in `.trivyignore.yaml` with a `statement` and an `expired_at` |
+
+Only CRITICAL gates because almost everything above it is owned by a pin this repo cannot move
+(fork lockfiles, EOL Elasticsearch, Debian LTS). The weekly run plus SARIF keeps the HIGH tail
+visible instead of turning the build permanently red. Exceptions rot on purpose: `expired_at` makes
+Trivy re-enable them, which forces a fresh look.
+
+**Known residual risk** (all documented in `.trivyignore.yaml`):
+
+- **Elasticsearch 7.17.28** is EOL and the last 7.x; RapidPro 9.0 needs ES7. Mitigation is
+  topology, not patching: unauthenticated but on the internal `rapidpro-data` network with no
+  published port.
+- **Debian bookworm packages in the RapidPro image** (ffmpeg/libheif/libaom/libxml2/mbedtls/…):
+  bookworm is in LTS-only mode, so many CVEs have no fix at all. Media conversion is the one
+  vaguely reachable path (uploaded attachments).
+- **Courier `v9.1.19` / rp-indexer `v26.0.1`** binaries embed old Go toolchains (1.22.1 / 1.25.0).
+  The protocol/schema locks documented above prevent moving tags; a fork rebuild is the fix.
+- **sqlparse 0.5.5** and **highcharts 9.3.0** are fork-lockfile/JS-asset fixes, not repo fixes.
+
 ## Build tooling
 
 - **RapidPro image** builds from the pinned fork tag `UbuhingaVizion/rapidpro@v9.0.0-ubuviz.5`
@@ -103,7 +143,7 @@ stack smoke test is run manually on a docker-capable host (see the script commen
   then drops to the unprivileged **`temba` (uid 1000)** user via `gosu`.
 - **Go services** build in `mailroom/`, `courier/`, `indexer/`, `archiver/`. Mailroom is compiled
   from the pinned fork tag `UbuhingaVizion/mailroom@v9.0.0-ubuviz.1` (AGPL surveyor-capable fork)
-  with `golang:1.26` (`CGO_ENABLED=0`, so static) and runs on **Alpine**.
+  with `golang:1.26` (`CGO_ENABLED=0`, so static) and runs on **Alpine 3.23** (3.20 went EOL in April 2026).
   Courier/rp-indexer/rp-archiver use nyaruka's pinned prebuilt AGPL release binaries, which are
   glibc-dynamic, so they run on **`gcr.io/distroless/base-debian12`** (with a static busybox for the
   courier healthcheck). All four run as non-root (`app`/`nonroot`).
@@ -111,9 +151,16 @@ stack smoke test is run manually on a docker-capable host (see the script commen
   volume and served by **nginx** (not the object store, not whitenoise). nginx uses the
   `nginxinc/nginx-unprivileged` image (uid 101, listens on 8080 → host 80).
 - All base and service images are pinned by digest. Bump them deliberately (or with a bot such as
-  Renovate); the compose file carries the service digests, the Dockerfiles the build digests.
+  Renovate); the compose file carries the service digests, the Dockerfiles the build digests. Every
+  bump is re-scanned by `.github/workflows/security.yml` (see **Security** below).
+- The RapidPro image applies **`RAPIDPRO_SECURITY_PINS`** on top of the fork's `uv.lock`
+  (currently `djangorestframework==3.18.3`, for CVE-2026-114136/114137/114138). These are exact
+  versions, applied with `uv pip install` + validated by `uv pip check`, so the build stays
+  reproducible. Drop an entry once the fork's lockfile ships it. `sqlparse` *cannot* be patched
+  that way: `smartmin 6.1.0` declares `sqlparse<0.6.0`, and the smartmin release that widens it
+  (6.2.x) drops Django 5.2, so that fix belongs to the fork's Django 6 upgrade.
 - **User media** is stored in **SeaweedFS** (S3-compatible; all-in-one `weed server -s3`, image
-  `chrislusf/seaweedfs:4.47`, cosign-signed) in the `temba-attachments` bucket. The `seaweedfs-init`
+  `chrislusf/seaweedfs:4.52`, cosign-signed) in the `temba-attachments` bucket. The `seaweedfs-init`
   one-shot creates `temba-archives`/`temba-attachments`/`temba-logs`/`temba-sessions` and applies a
   public-read bucket policy to `temba-attachments` (Surveyor downloads media by URL). The S3 port
   (8333) is internal only; nginx proxies `/media/` to that bucket so media URLs are served from the

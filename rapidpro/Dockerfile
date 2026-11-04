@@ -12,15 +12,27 @@
 # ---------------------------------------------------------------------------
 
 # node 22 (the security-updated JS deps require >=22, e.g. postcss-cli 12) - front-end assets
-FROM node:22-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS node
+FROM node:22-bookworm-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da AS node
 
 # ---- builder: venv + front-end assets ------------------------------------
-FROM python:3.12-slim-bookworm@sha256:6a0e06f5ba0b373d051aabd3fffb9b873f27f9a2a3a14bcbe37dee6f0e3bbc70 AS builder
+FROM python:3.12-slim-bookworm@sha256:e697c81897302a4c4333bade000d98038fbb21eb064f8ee1fd42d02ebcd9d337 AS builder
 
 # RapidPro source is fetched at a pinned ref from the UbuhingaVizion fork.
 # v9.0.0-ubuviz.5 == branch develop @ 4db65628f (previously .4 @ a978563d8)
 ARG RAPIDPRO_REPO=UbuhingaVizion/rapidpro
 ARG RAPIDPRO_REF=v9.0.0-ubuviz.5
+
+# Security back-ports for packages the fork's uv.lock pins to a vulnerable release.
+# Empty = install exactly the fork's lock (no overrides). Each pin must carry an
+# exact version so the image stays reproducible; `uv pip check` validates the
+# resolution afterwards. Remove an entry once RAPIDPRO_REF ships it.
+#   djangorestframework 3.18.1 -> CVE-2026-114136/114137/114138 (DoS + authz bypass)
+#
+# NOT patchable here: sqlparse 0.5.5 (CVE-2026-54284/59893/71491/59894/84305)
+# cannot go to 0.6.x because smartmin 6.1.0 declares `sqlparse<0.6.0`, and the
+# smartmin release that widens that range (6.2.x) drops Django 5.2 support.
+# That move belongs to the fork, together with the Django 6 upgrade.
+ARG RAPIDPRO_SECURITY_PINS=""
 
 # build deps only (dev headers, compilers). Tests upstream use libgdal-dev etc.
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -58,6 +70,13 @@ ENV PATH="/rapidpro/.venv/bin:$PATH"
 # [tool.uv] package = false means uv sync installs dependencies only.
 RUN uv sync --frozen --no-dev
 
+# Security back-ports (see RAPIDPRO_SECURITY_PINS above). Installed with the same
+# uv manager that built the venv, so no pip/setuptools get added to the image.
+RUN if [ -n "${RAPIDPRO_SECURITY_PINS}" ]; then \
+        uv pip install --no-cache ${RAPIDPRO_SECURITY_PINS} \
+        && uv pip check; \
+    fi
+
 # front-end assets (flow-editor, temba-components) are copied out of node_modules
 # by collectstatic; dev-only deps (tailwind/postcss/bower) aren't needed. RapidPro
 # ships a classic yarn.lock and the node image already bundles yarn (v1), so use it.
@@ -66,10 +85,13 @@ RUN yarn install --frozen-lockfile --production --non-interactive
 # modern less compiler for django-compressor's {% compress %} tags (the pinned
 # package.json less@2.7.1 can't parse modern CSS; upstream installs it globally).
 # Installed to a dedicated prefix so it can be copied into the runtime as-is.
-RUN npm install -g --prefix /opt/less less
+# Pinned exactly: an unpinned `npm install -g less` silently changes the image on
+# every rebuild, which breaks digest-level reproducibility and CVE tracking.
+ARG LESS_VERSION=4.9.1
+RUN npm install -g --prefix /opt/less "less@${LESS_VERSION}"
 
 # ---- runtime -------------------------------------------------------------
-FROM python:3.12-slim-bookworm@sha256:6a0e06f5ba0b373d051aabd3fffb9b873f27f9a2a3a14bcbe37dee6f0e3bbc70 AS runtime
+FROM python:3.12-slim-bookworm@sha256:e697c81897302a4c4333bade000d98038fbb21eb064f8ee1fd42d02ebcd9d337 AS runtime
 
 # runtime shared libraries only - no -dev headers, no node/npm
 RUN apt-get update && apt-get install -y --no-install-recommends \

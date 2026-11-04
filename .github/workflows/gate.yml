@@ -26,6 +26,7 @@ jobs:
           # RapidPro + mailroom are fetched at pinned fork tags at build time
           for svc in ('rapidpro', 'celery', 'celerybeat'):
               assert args(svc)['RAPIDPRO_REF'] == 'v9.0.0-ubuviz.5', args(svc)
+              assert args(svc)['RAPIDPRO_SECURITY_PINS'] == 'djangorestframework==3.18.3', args(svc)
           assert args('mailroom')['MAILROOM_REF'] == 'v9.0.0-ubuviz.1', args('mailroom')
           assert args('courier')['COURIER_REF'] == 'v9.1.19', args('courier')
           assert args('indexer')['INDEXER_REF'] == 'v26.0.1', args('indexer')
@@ -33,6 +34,14 @@ jobs:
           assert 'elasticsearch:7.17.28' in svcs['elastic']['image'], svcs['elastic']['image']
           assert '16-3.5-alpine' in svcs['postgres']['image'], svcs['postgres']['image']
           assert '7.2-alpine' in svcs['redis']['image'], svcs['redis']['image']
+          assert 'nginx-unprivileged:1.30-alpine' in svcs['nginx']['image'], svcs['nginx']['image']
+          assert 'seaweedfs:4.52' in svcs['seaweedfs']['image'], svcs['seaweedfs']['image']
+
+          # Every service image must stay digest-pinned (a floating tag is a
+          # supply-chain hole and defeats the CVE scan in security.yml).
+          for name, svc in svcs.items():
+              image = svc.get('image')
+              assert image is None or '@sha256:' in image, (name, image)
           print('rapidpro-docker version locks OK')
           "
 

@@ -1,0 +1,95 @@
+# Accepted vulnerabilities for `scripts/security_scan.sh` / .github/workflows/security.yml.
+#
+# Only CRITICAL findings gate a build (HIGH/MEDIUM/LOW are reported to the GitHub
+# Security tab as SARIF + printed in the run summary). Everything listed here is a
+# CRITICAL that has a published fix which this repo cannot apply by moving a pin.
+# Each entry must carry a statement and an expiry, so the exception rots instead of
+# becoming permanent. Do not add an entry for something a digest/version bump fixes.
+#
+# Format: https://trivy.dev/latest/docs/configuration/filtering/#trivyignoreyaml
+vulnerabilities:
+  # --- brotli: OOB write in the decoder (Alpine/Debian packaging lag) ----------
+  # Fix (brotli 1.2.1-r0 / 1.0.9-2+deb12u1) is published, but the upstream images
+  # we digest-pin have not been rebuilt with it yet. Drop this entry as soon as a
+  # refreshed nginx/postgis digest scans clean.
+  - id: CVE-2026-111497
+    statement: >-
+      brotli-libs/libbrotli1 OOB write. Not reachable in this stack: nginx only
+      serves pre-compressed text it was given and does no brotli decoding of
+      untrusted bodies; postgis never brotli-decodes. Waiting on upstream rebuild.
+    expired_at: 2027-01-31
+
+  # --- Go stdlib inside prebuilt upstream binaries -----------------------------
+  # courier v9.1.19 / rp-indexer v26.0.1 are shipped as release binaries compiled
+  # with the Go toolchain the upstream project chose (1.22.1 / 1.25.0). The task
+  # payload/queue-protocol lock documented in AGENTS.md prevents moving to a newer
+  # courier tag, and rp-indexer's next major is schema-driven. A fork rebuild with
+  # a current toolchain is the fix; tracked in the README roadmap.
+  - id: CVE-2025-68121
+    statement: >-
+      crypto/tls incorrect certificate validation during session resumption in the
+      Go stdlib baked into the pinned courier/indexer/postgis binaries. Requires a
+      MITM position plus a resumed TLS session; courier is not behind such a path
+      (all TLS is terminated at the host edge / Cloudflare).
+    expired_at: 2027-03-31
+  - id: CVE-2024-24790
+    statement: >-
+      net/netip Is*() behaviour for IPv4-mapped addresses, Go 1.22.1 in the courier
+      v9.1.19 binary. Only relevant to code that parses untrusted IP literals for
+      policy decisions; courier does not gate access on netip parsing.
+    expired_at: 2027-03-31
+
+  # --- sqlparse 0.5.5 (HIGH/MEDIUM, fork-locked) -------------------------------
+  # Listed for documentation: the gate only fails on CRITICAL, but these are the
+  # reason the RapidPro image still carries fixable HIGH findings.
+  # smartmin 6.1.0 declares `sqlparse>=0.4.1,<0.6.0`; smartmin 6.2.x widens it but
+  # drops Django 5.2, which RapidPro v9.0.0 requires. Unblocked by the fork's
+  # Django 6 upgrade, not by anything in this repo.
+  - id: CVE-2026-54284
+    statement: "sqlparse DoS via quadratic CPU consumption; blocked by smartmin<0.6.0."
+    expired_at: 2027-06-30
+  - id: CVE-2026-59893
+    statement: "sqlparse DoS via inefficient SQL parsing; blocked by smartmin<0.6.0."
+    expired_at: 2027-06-30
+  - id: CVE-2026-71491
+    statement: "sqlparse DoS via quadratic CPU consumption; blocked by smartmin<0.6.0."
+    expired_at: 2027-06-30
+  - id: CVE-2026-59894
+    statement: "sqlparse arbitrary code execution via unescaped backslash; blocked by smartmin<0.6.0."
+    expired_at: 2027-06-30
+  - id: CVE-2026-84305
+    statement: "sqlparse DoS via reindentation of tuple; blocked by smartmin<0.6.0."
+    expired_at: 2027-06-30
+
+  # --- Elasticsearch 7.17.28 (last 7.x; RapidPro 9.0 requires ES7) -------------
+  # The jars below are bundled in the ES distribution, not addable at runtime.
+  # ES is unauthenticated but unreachable from outside `rapidpro-data` (internal
+  # Docker network, no published port) - see the topology notes in AGENTS.md.
+  - id: CVE-2026-75595
+    statement: >-
+      Netty SNI routing bypass via fragmented ClientHello. ES7 is EOL and only
+      listens on the isolated internal network; no TLS/SNI is in play here.
+    expired_at: 2027-06-30
+  - id: CVE-2025-14813
+    statement: >-
+      BouncyCastle GOSTCTR implementation. ES7 does not use GOST ciphers or
+      BouncyCastle for its transport/codec paths in this configuration.
+    expired_at: 2027-06-30
+  - id: CVE-2026-8763
+    statement: >-
+      BouncyCastle bc-fips issue; the FIPS provider is unused in this single-node
+      ES7 install (xpack.security disabled).
+    expired_at: 2027-06-30
+
+# Check-level exceptions for `trivy config` (Dockerfile/compose linting).
+misconfigurations:
+  # The RapidPro image deliberately starts as root for one chown of the shared
+  # `sitestatic` volume and then drops to uid 1000 via gosu (see entrypoint.sh);
+  # a static USER line would break that handoff. Scoped to the one file that does
+  # it - the other Dockerfiles already carry USER.
+  - id: DS-0002
+    paths:
+      - rapidpro/Dockerfile
+    statement: >-
+      Entrypoint chowns the sitestatic volume as root, then execs gosu temba.
+    expired_at: 2027-06-30
