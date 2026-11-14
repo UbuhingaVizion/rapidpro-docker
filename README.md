@@ -13,7 +13,7 @@ v9.0.0, Django 5.2), with the Go service versions chosen to match its schema. It
 
 | Service | Version | Why |
 |---|---|---|
-| RapidPro (webapp + celery) | fork `UbuhingaVizion/rapidpro` @ `v9.0.0-ubuviz.5` | RapidPro v9.0.0, Django 5.2, Python 3.12, uv-native, plain Django templates; Surveyor media/API kept |
+| RapidPro (webapp + celery) | fork `UbuhingaVizion/rapidpro` @ `v9.0.0-ubuviz.6` | RapidPro v9.0.0, Django 5.2, Python 3.12, uv-native, plain Django templates; Surveyor media/API kept. `.6` = highcharts 11.4.9 (CVE-2026-118250/118251), dead `rawgit.com` plugin removed, pyotp 2.10 / setuptools 84 |
 | Mailroom | fork `UbuhingaVizion/mailroom` @ `v9.0.0-ubuviz.1` | surveyor-capable; retains `POST /mr/surveyor/submit` (BSL `nyaruka/mailroom` removed it in `v9.1.10`) |
 | Courier | `v9.1.19` (AGPL) | newest Courier speaking the `UbuhingaVizion` mailroom fork's protocol (task carries `org_id`, per-event channel types) |
 | rp-indexer | `v26.0.1` (AGPL) | matches the 9.0.0-era schema (ES7) |
@@ -144,11 +144,16 @@ is misleading — as of Nov 2026 the RapidPro image is ~400 unfixed-vs-6 fixable
   `postgis:16-3.7-alpine` would cut 72 → 44 HIGH and needs `ALTER EXTENSION postgis UPDATE`.
 - **Courier `v9.1.19` / rp-indexer `v26.0.1`** binaries embed old Go toolchains (1.22.1 / 1.25.0).
   The protocol/schema locks documented above prevent moving tags; a fork rebuild is the fix.
-- **sqlparse 0.5.5** and **highcharts 9.3.0** are fork-lockfile/JS-asset fixes, not repo fixes.
+- **sqlparse 0.5.5** is the one remaining fork-side Python fix and needs the Django 6/smartmin 6.2
+  move. **highcharts** was cleared in fork tag `v9.0.0-ubuviz.6` (9.3.0 → 11.4.9, both
+  CVE-2026-118250/118251), which also removed a `rawgit.com` plugin script from the dashboard that
+  had been loading from a domain dead since 2019. **image-size 0.9.7** remains and is build-only:
+  it is a dependency of the prebuilt `@nyaruka/temba-components` package and is never executed
+  (the runtime `lessc` comes from `/opt/less`, not `node_modules`).
 
 ## Build tooling
 
-- **RapidPro image** builds from the pinned fork tag `UbuhingaVizion/rapidpro@v9.0.0-ubuviz.5`
+- **RapidPro image** builds from the pinned fork tag `UbuhingaVizion/rapidpro@v9.0.0-ubuviz.6`
   (branch `modern`), fetched with `git clone --branch` in the builder (compose build args
   `RAPIDPRO_REPO`/`RAPIDPRO_REF`). Both stages run on **Debian 13 (trixie)** — bookworm is LTS-only
   and had ~400 unpatched findings, and Debian 13 renamed packages after the time_t transition

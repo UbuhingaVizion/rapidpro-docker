@@ -3,7 +3,7 @@
 ## What this repo is
 - Dev/test-only Docker Compose stack for a **Surveyor-capable** RapidPro (fork `UbuhingaVizion/rapidpro-docker`, branch `feature/LocalStack`). No application source here.
 - It pins a matched **RapidPro v9.0.0 / AGPL** service train. Surveyor support comes from the AGPL `rapidpro/mailroom` fork (the BSL `nyaruka/mailroom` removed `/mr/surveyor/submit` in v9.1.10); courier is pinned to `v9.1.19` (the newest release whose mailroom task still carries `org_id` and uses the per-event channel types), rp-indexer/rp-archiver to their newest **AGPL** tags. Do not "upgrade" individual services.
-- RapidPro source is the fork `UbuhingaVizion/rapidpro` @ **`v9.0.0-ubuviz.5`** (branch `develop`, merged from `modern`): RapidPro v9.0.0, Django 5.2, Python 3.12, uv, plain Django templates, Surveyor kept. Its `AGENTS.md` is the source of truth for app-side coupling.
+- RapidPro source is the fork `UbuhingaVizion/rapidpro` @ **`v9.0.0-ubuviz.6`** (branch `develop`, merged from `modern`): RapidPro v9.0.0, Django 5.2, Python 3.12, uv, plain Django templates, Surveyor kept. Its `AGENTS.md` is the source of truth for app-side coupling.
 - Mailroom source is the fork `UbuhingaVizion/mailroom` @ **`v9.0.0-ubuviz.1`** (branch `master`; AGPL, surveyor-capable). Both are fetched with `git clone --branch` at build time — no sibling checkouts.
 
 ## Commands
@@ -17,7 +17,7 @@
 - Security: `./scripts/security_scan.sh [--include-built] [--sbom]` scans every image in `docker-compose.yml` plus, with `--include-built`, the locally built ones; reports land in `.security/` (gitignored). Gate = CRITICAL **with a published fix**. Accepted findings live in `.trivyignore.yaml` and must carry a `statement` + `expired_at`. `.github/workflows/security.yml` runs it on push/PR and weekly (Mon 05:17 UTC) and uploads SARIF + CycloneDX SBOMs; it builds only courier/indexer/archiver, so run `--include-built` locally to cover rapidpro/mailroom.
 
 ## Version locks (move as one train)
-- RapidPro: fork `UbuhingaVizion/rapidpro` @ **`v9.0.0-ubuviz.5`** (branch `develop`, merged from `modern`), set via compose build args `RAPIDPRO_REPO`/`RAPIDPRO_REF`.
+- RapidPro: fork `UbuhingaVizion/rapidpro` @ **`v9.0.0-ubuviz.6`** (branch `develop`, merged from `modern`), set via compose build args `RAPIDPRO_REPO`/`RAPIDPRO_REF`.
 - Mailroom: fork `UbuhingaVizion/mailroom` @ **`v9.0.0-ubuviz.1`** (branch `master`; AGPL, surveyor-capable), set via compose build args `MAILROOM_REPO`/`MAILROOM_REF`. The Dockerfiles `git clone --branch` these tags at build time.
 - Courier `v9.1.19` (AGPL): the newest Courier that speaks the mailroom fork's protocol. `v9.1.20` changed the mailroom task payload, `v9.1.21` collapsed channel events into a single `channel_event` type, and `v9.3.18` renamed the queue (`handler` → `tasks:handler`); none of those are understood by the fork. rp-indexer `v26.0.1` (AGPL), rp-archiver `v26.0.1` (AGPL) — **archiver is parked** behind the `archiving` profile (see gotchas).
 - Elasticsearch `7.17.28`, PostGIS `16-3.5-alpine`, Redis `7.2-alpine`, SeaweedFS `4.52`, nginx `nginx-unprivileged:1.30-alpine` (current stable branch; 1.27 EOL'd upstream with 3 CRITICAL / 58 HIGH open CVEs).

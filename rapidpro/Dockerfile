@@ -18,9 +18,10 @@ FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc
 FROM python:3.12-slim-trixie@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b AS builder
 
 # RapidPro source is fetched at a pinned ref from the UbuhingaVizion fork.
-# v9.0.0-ubuviz.5 == branch develop @ 4db65628f (previously .4 @ a978563d8)
+# v9.0.0-ubuviz.6 == branch develop @ 4d5dade8a (highcharts 11.4.9 + rawgit removal);
+# .5 was 4db65628f, .4 a978563d8
 ARG RAPIDPRO_REPO=UbuhingaVizion/rapidpro
-ARG RAPIDPRO_REF=v9.0.0-ubuviz.5
+ARG RAPIDPRO_REF=v9.0.0-ubuviz.6
 
 # Security back-ports for packages the fork's uv.lock pins to a vulnerable release.
 # Empty = install exactly the fork's lock (no overrides). Each pin must carry an
@@ -61,8 +62,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=node /usr/local /usr/local
 COPY --from=node /opt/yarn-v1.22.22 /opt/yarn-v1.22.22
 
-# install uv
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+# install uv - pinned, because the lockfile revision tracks the uv that wrote it
+# (the fork's uv.lock is revision 5; an older uv refuses/rewrites it).
+ARG UV_VERSION=0.13.8
+RUN curl -LsSf https://astral.sh/uv/${UV_VERSION}/install.sh | sh \
+    && /root/.local/bin/uv --version
 ENV PATH="/root/.local/bin:$PATH"
 
 WORKDIR /rapidpro
