@@ -30,9 +30,13 @@ ARG RAPIDPRO_REF=v9.0.0-ubuviz.5
 #   djangorestframework 3.18.1 -> 3.18.3  CVE-2026-114136/114137/114138
 #   oauthlib            4.0.0  -> 4.0.1   CVE-2026-49272 (GHSA-3jp2-3mrg-2vxc)
 #   django              5.2.18 -> 5.2.19  current 5.2 LTS patch
-#   celery              5.6.3  -> 5.7.0   (+ kombu 5.7.0, billiard 4.3.2, amqp 5.4.2)
 #   psycopg(-binary)    3.3.6  -> 3.3.9
 #   certifi             2026.10.19 -> 2026.10.23 (CA bundle)
+#
+# Deliberately NOT here: celery 5.7.0. It drags in kombu 5.7.0, whose Redis
+# transport hard-requires redis-py >= 6.1 (this fork pins `redis<6`), so beat and
+# worker die with `kombu.exceptions.VersionMismatch`. Revisit only together with
+# the fork's redis-py 6 move.
 #
 # NOT patchable here: sqlparse 0.5.5 (CVE-2026-54284/59893/71491/59894/84305)
 # cannot go to 0.6.x because smartmin 6.1.0 declares `sqlparse<0.6.0`, and the

@@ -175,13 +175,15 @@ is misleading — as of Nov 2026 the RapidPro image is ~400 unfixed-vs-6 fixable
   Renovate); the compose file carries the service digests, the Dockerfiles the build digests. Every
   bump is re-scanned by `.github/workflows/security.yml` (see **Security** below).
 - The RapidPro image applies **`RAPIDPRO_SECURITY_PINS`** on top of the fork's `uv.lock`
-  (`djangorestframework==3.18.3 oauthlib==4.0.1 django==5.2.19 celery==5.7.0 psycopg==3.3.9
+  (`djangorestframework==3.18.3 oauthlib==4.0.1 django==5.2.19 psycopg==3.3.9
   psycopg-binary==3.3.9 certifi==2026.10.23`). These are exact versions, applied with
   `uv pip install` + validated by `uv pip check`, so the build stays reproducible. Drop an entry
   once the fork's lockfile ships it. `sqlparse` *cannot* be patched that way: `smartmin 6.1.0`
   declares `sqlparse<0.6.0`, and the smartmin release that widens it (6.2.x) drops Django 5.2, so
   that fix belongs to the fork's Django 6 upgrade; `setuptools 84` is likewise excluded by the
-  fork's `setuptools>=83,<84`.
+  fork's `setuptools>=83,<84`. **`celery` is deliberately left at 5.6.3**: 5.7.0 pulls kombu 5.7.0,
+  whose Redis transport requires `redis-py >= 6.1` while this fork pins `redis<6`, and beat/worker
+  die with `kombu.exceptions.VersionMismatch`.
 - **User media** is stored in **SeaweedFS** (S3-compatible; all-in-one `weed server -s3`, image
   `chrislusf/seaweedfs:4.52`, cosign-signed) in the `temba-attachments` bucket. The `seaweedfs-init`
   one-shot creates `temba-archives`/`temba-attachments`/`temba-logs`/`temba-sessions` and applies a
