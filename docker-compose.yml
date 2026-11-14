@@ -59,6 +59,7 @@ services:
     # 1.30.x is the current stable branch (1.27 EOL'd upstream in 2025; it shipped
     # Alpine packages with 3 CRITICAL / 58 HIGH open CVEs at the time of the move).
     image: nginxinc/nginx-unprivileged:1.30-alpine@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03
+    restart: unless-stopped
     volumes:
       - "./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro"
       - sitestatic:/sitestatic:ro
@@ -70,9 +71,18 @@ services:
     depends_on:
       rapidpro:
         condition: service_healthy
+    # /healthz is answered by nginx itself (see nginx/default.conf) so `docker
+    # compose up --wait` can gate on the edge without depending on Django.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   postgres:
     image: postgis/postgis:16-3.5-alpine@sha256:47e961a569fd52ff31f0fe205ed91eeab17d9f5fff6722e6d7ea6b588748b293 # matches RapidPro modern CI
+    restart: unless-stopped
     volumes:
       - postgres:/var/lib/postgresql/data
     # Published on loopback ONLY so the on-host smsgateway (dedup engine) can use
@@ -94,6 +104,7 @@ services:
 
   elastic:
     image: elasticsearch:7.17.28@sha256:a06b03a2db8db2be43d3c3851e7bcebdd4fff79f4db08c7da6bad7a8776d3e15
+    restart: unless-stopped
     volumes:
       - elastic:/usr/share/elasticsearch/data
     networks:
@@ -110,6 +121,7 @@ services:
 
   redis:
     image: redis:7.2-alpine@sha256:f8548b29a1f1cb358b5fcfec1e0126beab57ad15776c1e87623f865579f16c5a
+    restart: unless-stopped
     command: redis-server --save 60 1 --loglevel ${REDIS_LOG_LEVEL:-warning}
     volumes:
       - redis:/data
@@ -124,6 +136,7 @@ services:
     # 4.52 (was 4.47): the 4.47 build shipped an unpatched brotli/zlib Go toolchain
     # (1 CRITICAL + 9 HIGH); 4.52 is scanned clean at HIGH/CRITICAL.
     image: chrislusf/seaweedfs:4.52@sha256:57877e32bb90073b37dc109b438ba66e84fd5ed9ced5f5c04f56444ef243ce59
+    restart: unless-stopped
     command: >
       server -s3 -dir=/data -ip.bind=0.0.0.0
       -s3.config=/etc/seaweedfs/s3.json
@@ -178,6 +191,7 @@ services:
         # Fold these into the fork's lockfile and bump RAPIDPRO_REF to drop them.
         - RAPIDPRO_SECURITY_PINS=djangorestframework==3.18.3 oauthlib==4.0.1 django==5.2.19 psycopg==3.3.9 psycopg-binary==3.3.9 certifi==2026.10.23
     command: ["webapp"]
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
@@ -273,6 +287,7 @@ services:
       args:
         - MAILROOM_REPO=UbuhingaVizion/mailroom
         - MAILROOM_REF=v9.0.0-ubuviz.1
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
@@ -336,6 +351,7 @@ services:
       context: ./courier
       args:
         - COURIER_REF=v9.1.19
+    restart: unless-stopped
     depends_on:
       rapidpro:
         condition: service_healthy
@@ -391,6 +407,7 @@ services:
       context: ./indexer
       args:
         - INDEXER_REF=v26.0.1
+    restart: unless-stopped
     depends_on:
       rapidpro:
         condition: service_healthy

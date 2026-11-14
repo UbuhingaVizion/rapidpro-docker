@@ -208,6 +208,69 @@ is misleading — as of Nov 2026 the RapidPro image is ~400 unfixed-vs-6 fixable
 - Keep published survey flows at `spec_version` ≤ 13.x so the phone's embedded engine can run them.
 - The Android app expects HTTPS in the field; HTTP above is for local testing.
 
+## Starting at boot
+
+Two layers, because they solve different problems:
+
+1. **`restart: unless-stopped`** on every long-running service (asserted in
+   `.github/workflows/gate.yml`; `seaweedfs-init` stays `restart: "no"`). This is what brings
+   containers back after a daemon restart or crash — Docker does that itself, with no ordering.
+2. **A systemd unit** that runs `docker compose up -d --wait` once the daemon is up. Docker's
+   restart policies cannot order startup (`depends_on` health conditions are a Compose concept,
+   ignored when dockerd resurrects containers), and `rapidpro` runs `migrate` the moment it starts.
+   `--wait` also turns "started" into "actually serving".
+
+The unit is **host configuration, not repo content** — it encodes an absolute project path and an
+optional secrets file, so it lives in `/etc/systemd/system/` on the host:
+
+```ini
+[Unit]
+Description=RapidPro compose stack
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/path/to/rapidpro-docker    # must contain .env
+EnvironmentFile=-/etc/default/environment    # optional host-level overrides
+ExecStart=/usr/bin/docker compose up -d --wait --wait-timeout 300
+ExecStop=/usr/bin/docker compose stop --timeout 30
+TimeoutStartSec=600
+TimeoutStopSec=120
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now rapidpro-stack.service
+systemctl status rapidpro-stack.service      # active (exited) is correct: Type=oneshot
+```
+
+`ExecStop` deliberately uses `stop`, never `down`, so `systemctl stop` cannot delete containers or
+volumes. `--remove-orphans` is deliberately absent so a manually enabled `--profile archiving`
+service is not reaped at boot.
+
+Verify without rebooting: `sudo systemctl restart docker` (exercises layer 1, containers come back
+on their own) then `sudo systemctl restart rapidpro-stack` (exercises layer 2, ordered + `--wait`).
+`curl -s localhost/healthz` returns `ok` — that endpoint is answered by nginx itself and is what
+the edge healthcheck polls, so a webapp that is still migrating cannot mark the edge unhealthy.
+
+Things that are *not* covered by this unit:
+
+- the on-host **smsgateway** dedup engine (payment `call_webhook` target) needs its own unit with
+  `After=rapidpro-stack.service`, since it connects to the loopback-published Postgres;
+- a **host TLS proxy** in front of `127.0.0.1:80` should also carry `After=rapidpro-stack.service`,
+  otherwise the first requests after boot 502;
+- the **Cloudflare tunnel** is part of the stack (`cloudflared`), so it is covered.
+
 ## Deploying on a public domain
 
 Set these in `.env` (or the host environment, e.g. `/etc/default/environment`) before

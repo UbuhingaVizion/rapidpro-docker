@@ -44,6 +44,12 @@ jobs:
           for name, svc in svcs.items():
               image = svc.get('image')
               assert image is None or '@sha256:' in image, (name, image)
+          # Every service must come back by itself after a docker daemon restart
+          # (systemd's `up` does not re-run when the unit is already active); the
+          # one-shot bucket init is the single exception.
+          for name, svc in svcs.items():
+              expected = 'no' if name == 'seaweedfs-init' else 'unless-stopped'
+              assert str(svc.get('restart')) == expected, (name, svc.get('restart'))
           print('rapidpro-docker version locks OK')
           "
 
