@@ -127,15 +127,17 @@ is misleading — as of Nov 2026 the RapidPro image is ~400 unfixed-vs-6 fixable
 - **Elasticsearch 7.17.28** is EOL and the last 7.x; RapidPro 9.0 needs ES7. Mitigation is
   topology, not patching: unauthenticated but on the internal `rapidpro-data` network with no
   published port.
-- **Debian bookworm LTS in the RapidPro image** — the dominant residual: ~400 unfixed
-  HIGH/CRITICAL across `libpq5` (34), the ffmpeg family (144), `libheif` (16), krb5 (14),
-  libxml2/mbedtls/aom/glib. Bookworm is in LTS-only mode and these packages get no patches at all.
-  Media conversion (uploaded attachments → ffmpeg/libheif) is the one reachable path. Dropping
-  ffmpeg is not an option (`temba/msgs/media.py` needs it). **The lever is the distro, not a pin:
-  moving the runtime to `python:3.12-slim-trixie` (Debian 13) cuts the base from ~96 to ~49
-  HIGH/CRITICAL and ships a modern ffmpeg/gdal.** Tracked as the next step; it needs the package
-  renames (`libgdal32`→`libgdal36`, `libgeos-c1v5`→`libgeos-c1t64`) and the surveyor gate as
-  acceptance.
+- **Debian packages in the RapidPro image** — the dominant residual. The runtime moved to
+  **Debian 13 (trixie)**, which cut the unfixed tail from 402 to **333** HIGH/CRITICAL and the
+  unfixed CRITICALs from 8 to 5 (removed: `libpq5` ×34, `libheif` ×16, mbedtls/aom/glib/sqlite, and
+  the `apt` finding). What remains is concentrated: **ffmpeg 7.1.5 family, 153** (17 CVEs × 9
+  packages) and **krb5, 42**, plus `libmariadb3`/`mariadb-common` (4 CRITICAL, a hard dependency of
+  `libgdal36`'s MySQL driver) and `libxml2`. Debian stable does **not** ship fixes for ffmpeg
+  promptly, so this tail survives any Debian base — the distro move was still worth it (trixie is
+  supported to 2030 vs bookworm's 2028 LTS end, and it brings ffmpeg 7 / GDAL 3.10). ffmpeg cannot
+  be dropped: `temba/msgs/media.py` runs it for audio/video conversion on uploaded attachments,
+  which is the one reachable path. Verified after the move with an ffmpeg 7.1.5 encode plus
+  GeoDjango/GEOS/PROJ spatial queries against PostGIS.
 - **Alpine packages in nginx/PostGIS** (`krb5`, `musl`, `libxslt`, `libexpat`) have fixes in the
   Alpine repos but upstream images have not been rebuilt (the digests do not move), so no pull
   helps; `nginx-unprivileged:1.31-alpine` and `:stable-alpine` are identical in this regard.
@@ -148,7 +150,11 @@ is misleading — as of Nov 2026 the RapidPro image is ~400 unfixed-vs-6 fixable
 
 - **RapidPro image** builds from the pinned fork tag `UbuhingaVizion/rapidpro@v9.0.0-ubuviz.5`
   (branch `modern`), fetched with `git clone --branch` in the builder (compose build args
-  `RAPIDPRO_REPO`/`RAPIDPRO_REF`). This repo overlays `rapidpro/docker_settings.py` (copied
+  `RAPIDPRO_REPO`/`RAPIDPRO_REF`). Both stages run on **Debian 13 (trixie)** — bookworm is LTS-only
+  and had ~400 unpatched findings, and Debian 13 renamed packages after the time_t transition
+  (`libgdal32`→`libgdal36`, `libgeos-c1v5`→`libgeos-c1t64`, `libssl3`→`libssl3t64`,
+  `libmagic1`→`libmagic1t64`), so a future distro bump has to re-check those names. This repo
+  overlays `rapidpro/docker_settings.py` (copied
   to `temba/settings.py`) and `rapidpro/entrypoint.sh`. It is a **multi-stage build**: the builder
   carries the `-dev` headers/compilers and Node 22, runs `uv sync --frozen --no-dev` and
   `yarn install --frozen-lockfile --production` (RapidPro ships a yarn.lock); the runtime stage keeps

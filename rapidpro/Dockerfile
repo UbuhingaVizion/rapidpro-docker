@@ -15,7 +15,7 @@
 FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS node
 
 # ---- builder: venv + front-end assets ------------------------------------
-FROM python:3.12-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df AS builder
+FROM python:3.12-slim-trixie@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b AS builder
 
 # RapidPro source is fetched at a pinned ref from the UbuhingaVizion fork.
 # v9.0.0-ubuviz.5 == branch develop @ 4db65628f (previously .4 @ a978563d8)
@@ -47,7 +47,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libjpeg-dev zlib1g-dev \
         libffi-dev libssl-dev \
         libxml2-dev libxslt1-dev \
-        libmagic1 \
+        libmagic1t64 \
         build-essential pkg-config \
         curl ca-certificates git \
     && rm -rf /var/lib/apt/lists/*
@@ -97,15 +97,21 @@ ARG LESS_VERSION=4.9.1
 RUN npm install -g --prefix /opt/less "less@${LESS_VERSION}"
 
 # ---- runtime -------------------------------------------------------------
-FROM python:3.12-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df AS runtime
+FROM python:3.12-slim-trixie@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b AS runtime
 
-# runtime shared libraries only - no -dev headers, no node/npm
+# runtime shared libraries only - no -dev headers, no node/npm.
+# Debian 13 (trixie) rather than 12 (bookworm): bookworm is LTS-only, so ~400
+# HIGH/CRITICAL findings in this image had no published patch at all (libpq5,
+# ffmpeg, libheif, krb5, libxml2, mbedtls). trixie ships patched versions and
+# ffmpeg 7 / GDAL 3.10. Names differ after Debian's time_t transition:
+#   libgdal32->libgdal36, libgeos-c1v5->libgeos-c1t64, libssl3->libssl3t64,
+#   libmagic1->libmagic1t64
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        libgdal32 libgeos-c1v5 libproj25 \
+        libgdal36 libgeos-c1t64 libproj25 \
         libpq5 \
-        libjpeg62-turbo zlib1g libffi8 libssl3 \
+        libjpeg62-turbo zlib1g libffi8 libssl3t64 \
         libxml2 libxslt1.1 \
-        libmagic1 \
+        libmagic1t64 \
         ffmpeg curl ca-certificates gosu \
     && rm -rf /var/lib/apt/lists/*
 
