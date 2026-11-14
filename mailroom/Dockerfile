@@ -5,7 +5,7 @@
 # from the AGPL UbuhingaVizion fork of rapidpro/mailroom; that fork retains the
 # Surveyor submission endpoint (POST /mr/surveyor/submit) which BSL
 # nyaruka/mailroom dropped in v9.1.10.
-FROM golang:1.26-bookworm@sha256:23ce71337b726608afb1bc00986e630a05034a87a87ea1fc2cd1ae5cf33387eb AS build
+FROM golang:1.26-bookworm@sha256:dc40a13b61304647ed7e5d581d246b86413dfc29d63c6d018310feb93cd98fc0 AS build
 
 # v9.0.0-ubuviz.1 == branch master @ f5a174684b8573d1fafc5df760c2abe8728efd10
 ARG MAILROOM_REPO=UbuhingaVizion/mailroom
@@ -31,7 +31,7 @@ RUN ver="$(grep 'github.com/nyaruka/goflow' go.mod | awk '{print $2}' | sed 's/^
 
 # Alpine 3.23: 3.20 reached end-of-life on 2026-04-01, so it stopped receiving
 # security fixes for ca-certificates/tzdata/curl (the runtime's only packages).
-FROM alpine:3.23@sha256:ff7f0c727dd796aa36787bfcd9a64bf35a6ce72a73451b3359fde849b6703d63
+FROM alpine:3.23@sha256:469c9ea410b9215eaee7976ba6c0639039b444be8e5d638f7abbada189971eb2
 RUN apk add --no-cache ca-certificates tzdata curl \
     && adduser -D -u 1000 app
 

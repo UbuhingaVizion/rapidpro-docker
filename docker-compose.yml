@@ -143,7 +143,7 @@ services:
   # bucket publicly readable (Surveyor downloads media by URL). The SeaweedFS S3 port
   # is intentionally not published; nginx proxies /media/ to it.
   seaweedfs-init:
-    image: amazon/aws-cli:latest@sha256:d557b3524475d70dd3104cf44d96568ee3188897b73a6ece2b37aa50e1af362f
+    image: amazon/aws-cli:latest@sha256:33a16c53ea442e918b58df67301ad76a8fb57082c39f7e78753b898c3f3e87c2
     depends_on:
       seaweedfs:
         condition: service_healthy
@@ -176,7 +176,7 @@ services:
         - RAPIDPRO_REF=v9.0.0-ubuviz.5
         # Security back-ports applied on top of the fork's uv.lock (see rapidpro/Dockerfile).
         # Fold these into the fork's lockfile and bump RAPIDPRO_REF to drop them.
-        - RAPIDPRO_SECURITY_PINS=djangorestframework==3.18.3
+        - RAPIDPRO_SECURITY_PINS=djangorestframework==3.18.3 oauthlib==4.0.1 django==5.2.19 celery==5.7.0 psycopg==3.3.9 psycopg-binary==3.3.9 certifi==2026.10.23
     command: ["webapp"]
     depends_on:
       postgres:
@@ -223,7 +223,7 @@ services:
         - RAPIDPRO_REF=v9.0.0-ubuviz.5
         # Security back-ports applied on top of the fork's uv.lock (see rapidpro/Dockerfile).
         # Fold these into the fork's lockfile and bump RAPIDPRO_REF to drop them.
-        - RAPIDPRO_SECURITY_PINS=djangorestframework==3.18.3
+        - RAPIDPRO_SECURITY_PINS=djangorestframework==3.18.3 oauthlib==4.0.1 django==5.2.19 celery==5.7.0 psycopg==3.3.9 psycopg-binary==3.3.9 certifi==2026.10.23
     command: ["worker"]
     restart: unless-stopped
     depends_on:
@@ -251,7 +251,7 @@ services:
         - RAPIDPRO_REF=v9.0.0-ubuviz.5
         # Security back-ports applied on top of the fork's uv.lock (see rapidpro/Dockerfile).
         # Fold these into the fork's lockfile and bump RAPIDPRO_REF to drop them.
-        - RAPIDPRO_SECURITY_PINS=djangorestframework==3.18.3
+        - RAPIDPRO_SECURITY_PINS=djangorestframework==3.18.3 oauthlib==4.0.1 django==5.2.19 celery==5.7.0 psycopg==3.3.9 psycopg-binary==3.3.9 certifi==2026.10.23
     command: ["beat"]
     restart: unless-stopped
     depends_on:

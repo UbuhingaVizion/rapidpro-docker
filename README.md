@@ -117,14 +117,29 @@ Only CRITICAL gates because almost everything above it is owned by a pin this re
 visible instead of turning the build permanently red. Exceptions rot on purpose: `expired_at` makes
 Trivy re-enable them, which forces a fresh look.
 
-**Known residual risk** (all documented in `.trivyignore.yaml`):
+The summary table therefore splits the two kinds of finding: `CRIT/HIGH/MED/LOW` are **fixable**
+(moving a pin can clear them — that is the actionable set), and `UNFIXED` is unfixed HIGH+CRITICAL
+(upstream has published no patch; reported, never gates). Reading the table as "we have 400 HIGHs"
+is misleading — as of Nov 2026 the RapidPro image is ~400 unfixed-vs-6 fixable.
+
+**Known residual risk** (documented in `.trivyignore.yaml` and below):
 
 - **Elasticsearch 7.17.28** is EOL and the last 7.x; RapidPro 9.0 needs ES7. Mitigation is
   topology, not patching: unauthenticated but on the internal `rapidpro-data` network with no
   published port.
-- **Debian bookworm packages in the RapidPro image** (ffmpeg/libheif/libaom/libxml2/mbedtls/…):
-  bookworm is in LTS-only mode, so many CVEs have no fix at all. Media conversion is the one
-  vaguely reachable path (uploaded attachments).
+- **Debian bookworm LTS in the RapidPro image** — the dominant residual: ~400 unfixed
+  HIGH/CRITICAL across `libpq5` (34), the ffmpeg family (144), `libheif` (16), krb5 (14),
+  libxml2/mbedtls/aom/glib. Bookworm is in LTS-only mode and these packages get no patches at all.
+  Media conversion (uploaded attachments → ffmpeg/libheif) is the one reachable path. Dropping
+  ffmpeg is not an option (`temba/msgs/media.py` needs it). **The lever is the distro, not a pin:
+  moving the runtime to `python:3.12-slim-trixie` (Debian 13) cuts the base from ~96 to ~49
+  HIGH/CRITICAL and ships a modern ffmpeg/gdal.** Tracked as the next step; it needs the package
+  renames (`libgdal32`→`libgdal36`, `libgeos-c1v5`→`libgeos-c1t64`) and the surveyor gate as
+  acceptance.
+- **Alpine packages in nginx/PostGIS** (`krb5`, `musl`, `libxslt`, `libexpat`) have fixes in the
+  Alpine repos but upstream images have not been rebuilt (the digests do not move), so no pull
+  helps; `nginx-unprivileged:1.31-alpine` and `:stable-alpine` are identical in this regard.
+  `postgis:16-3.7-alpine` would cut 72 → 44 HIGH and needs `ALTER EXTENSION postgis UPDATE`.
 - **Courier `v9.1.19` / rp-indexer `v26.0.1`** binaries embed old Go toolchains (1.22.1 / 1.25.0).
   The protocol/schema locks documented above prevent moving tags; a fork rebuild is the fix.
 - **sqlparse 0.5.5** and **highcharts 9.3.0** are fork-lockfile/JS-asset fixes, not repo fixes.
@@ -154,11 +169,13 @@ Trivy re-enable them, which forces a fresh look.
   Renovate); the compose file carries the service digests, the Dockerfiles the build digests. Every
   bump is re-scanned by `.github/workflows/security.yml` (see **Security** below).
 - The RapidPro image applies **`RAPIDPRO_SECURITY_PINS`** on top of the fork's `uv.lock`
-  (currently `djangorestframework==3.18.3`, for CVE-2026-114136/114137/114138). These are exact
-  versions, applied with `uv pip install` + validated by `uv pip check`, so the build stays
-  reproducible. Drop an entry once the fork's lockfile ships it. `sqlparse` *cannot* be patched
-  that way: `smartmin 6.1.0` declares `sqlparse<0.6.0`, and the smartmin release that widens it
-  (6.2.x) drops Django 5.2, so that fix belongs to the fork's Django 6 upgrade.
+  (`djangorestframework==3.18.3 oauthlib==4.0.1 django==5.2.19 celery==5.7.0 psycopg==3.3.9
+  psycopg-binary==3.3.9 certifi==2026.10.23`). These are exact versions, applied with
+  `uv pip install` + validated by `uv pip check`, so the build stays reproducible. Drop an entry
+  once the fork's lockfile ships it. `sqlparse` *cannot* be patched that way: `smartmin 6.1.0`
+  declares `sqlparse<0.6.0`, and the smartmin release that widens it (6.2.x) drops Django 5.2, so
+  that fix belongs to the fork's Django 6 upgrade; `setuptools 84` is likewise excluded by the
+  fork's `setuptools>=83,<84`.
 - **User media** is stored in **SeaweedFS** (S3-compatible; all-in-one `weed server -s3`, image
   `chrislusf/seaweedfs:4.52`, cosign-signed) in the `temba-attachments` bucket. The `seaweedfs-init`
   one-shot creates `temba-archives`/`temba-attachments`/`temba-logs`/`temba-sessions` and applies a

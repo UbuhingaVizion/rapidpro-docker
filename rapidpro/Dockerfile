@@ -12,10 +12,10 @@
 # ---------------------------------------------------------------------------
 
 # node 22 (the security-updated JS deps require >=22, e.g. postcss-cli 12) - front-end assets
-FROM node:22-bookworm-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da AS node
+FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS node
 
 # ---- builder: venv + front-end assets ------------------------------------
-FROM python:3.12-slim-bookworm@sha256:e697c81897302a4c4333bade000d98038fbb21eb064f8ee1fd42d02ebcd9d337 AS builder
+FROM python:3.12-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df AS builder
 
 # RapidPro source is fetched at a pinned ref from the UbuhingaVizion fork.
 # v9.0.0-ubuviz.5 == branch develop @ 4db65628f (previously .4 @ a978563d8)
@@ -25,8 +25,14 @@ ARG RAPIDPRO_REF=v9.0.0-ubuviz.5
 # Security back-ports for packages the fork's uv.lock pins to a vulnerable release.
 # Empty = install exactly the fork's lock (no overrides). Each pin must carry an
 # exact version so the image stays reproducible; `uv pip check` validates the
-# resolution afterwards. Remove an entry once RAPIDPRO_REF ships it.
-#   djangorestframework 3.18.1 -> CVE-2026-114136/114137/114138 (DoS + authz bypass)
+# resolution afterwards (that is what blocks sqlparse 0.6.x, see below). Remove an
+# entry once RAPIDPRO_REF ships it.
+#   djangorestframework 3.18.1 -> 3.18.3  CVE-2026-114136/114137/114138
+#   oauthlib            4.0.0  -> 4.0.1   CVE-2026-49272 (GHSA-3jp2-3mrg-2vxc)
+#   django              5.2.18 -> 5.2.19  current 5.2 LTS patch
+#   celery              5.6.3  -> 5.7.0   (+ kombu 5.7.0, billiard 4.3.2, amqp 5.4.2)
+#   psycopg(-binary)    3.3.6  -> 3.3.9
+#   certifi             2026.10.19 -> 2026.10.23 (CA bundle)
 #
 # NOT patchable here: sqlparse 0.5.5 (CVE-2026-54284/59893/71491/59894/84305)
 # cannot go to 0.6.x because smartmin 6.1.0 declares `sqlparse<0.6.0`, and the
@@ -91,7 +97,7 @@ ARG LESS_VERSION=4.9.1
 RUN npm install -g --prefix /opt/less "less@${LESS_VERSION}"
 
 # ---- runtime -------------------------------------------------------------
-FROM python:3.12-slim-bookworm@sha256:e697c81897302a4c4333bade000d98038fbb21eb064f8ee1fd42d02ebcd9d337 AS runtime
+FROM python:3.12-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df AS runtime
 
 # runtime shared libraries only - no -dev headers, no node/npm
 RUN apt-get update && apt-get install -y --no-install-recommends \

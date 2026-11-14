@@ -64,8 +64,23 @@ if [ "$INCLUDE_BUILT" = 1 ]; then
     )
 fi
 
-count() { # count <file> <severity>
-    python3 - "$1" "$2" <<'PY'
+count() { # count <file> <severity> [fixable-only]
+    python3 - "$1" "$2" "${3:-}" <<'PY'
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+except Exception:
+    print(0); raise SystemExit
+fixable_only = len(sys.argv) > 3 and sys.argv[3] == "fixable"
+print(sum(1 for r in d.get("Results") or []
+          for v in r.get("Vulnerabilities") or []
+          if v.get("Severity") == sys.argv[2]
+          and (not fixable_only or v.get("FixedVersion"))))
+PY
+}
+
+count_unfixed() { # unfixed HIGH+CRITICAL, i.e. nothing can be done by moving a pin
+    python3 - "$1" <<'PY'
 import json, sys
 try:
     d = json.load(open(sys.argv[1]))
@@ -73,13 +88,14 @@ except Exception:
     print(0); raise SystemExit
 print(sum(1 for r in d.get("Results") or []
           for v in r.get("Vulnerabilities") or []
-          if v.get("Severity") == sys.argv[2]))
+          if v.get("Severity") in ("CRITICAL", "HIGH") and not v.get("FixedVersion")))
 PY
 }
 
 printf 'scanning %d image(s); gate = CRITICAL with a published fix; accepted set = %s\n\n' \
     "${#REFS[@]}" "${IGNORE_FILE#"$REPO_ROOT"/}"
-printf '%-46s %5s %5s %5s %5s  %s\n' IMAGE CRIT HIGH MED LOW GATE | tee -a "$SUMMARY"
+printf '%-46s %5s %5s %5s %5s %8s  %s\n' \
+    IMAGE CRIT HIGH MED LOW UNFIXED GATE | tee -a "$SUMMARY"
 
 gate_failed=0
 for ref in "${REFS[@]}"; do
@@ -110,10 +126,19 @@ for ref in "${REFS[@]}"; do
     fi
 
     if [ "$rc" -eq 1 ]; then gate="FAIL"; gate_failed=1; else gate="ok"; fi
-    printf '%-46s %5s %5s %5s %5s  %s\n' "${ref%@sha256:*}" \
-        "$(count "$full" CRITICAL)" "$(count "$full" HIGH)" \
-        "$(count "$full" MEDIUM)" "$(count "$full" LOW)" "$gate" | tee -a "$SUMMARY"
+    printf '%-46s %5s %5s %5s %5s %8s  %s\n' "${ref%@sha256:*}" \
+        "$(count "$full" CRITICAL fixable)" "$(count "$full" HIGH fixable)" \
+        "$(count "$full" MEDIUM fixable)" "$(count "$full" LOW fixable)" \
+        "$(count_unfixed "$full")" "$gate" | tee -a "$SUMMARY"
 done
+
+cat <<EOF | tee -a "$SUMMARY"
+
+CRIT/HIGH/MED/LOW are *fixable* findings only (the actionable set; CRIT gates).
+UNFIXED is unfixed HIGH+CRITICAL, i.e. upstream has published no patch - no pin
+move can clear it, so it is reported but never gates. Accepted exceptions
+(.trivyignore.yaml) are excluded from every column.
+EOF
 
 echo
 # Merge the per-image SARIF into one file (SARIF allows multiple `runs`) so the

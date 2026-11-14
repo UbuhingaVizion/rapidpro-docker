@@ -24,9 +24,11 @@ jobs:
               return dict(x.split('=', 1) for x in svcs[svc]['build']['args'])
 
           # RapidPro + mailroom are fetched at pinned fork tags at build time
+          pins = ('djangorestframework==3.18.3 oauthlib==4.0.1 django==5.2.19 '
+                  'celery==5.7.0 psycopg==3.3.9 psycopg-binary==3.3.9 certifi==2026.10.23')
           for svc in ('rapidpro', 'celery', 'celerybeat'):
               assert args(svc)['RAPIDPRO_REF'] == 'v9.0.0-ubuviz.5', args(svc)
-              assert args(svc)['RAPIDPRO_SECURITY_PINS'] == 'djangorestframework==3.18.3', args(svc)
+              assert args(svc)['RAPIDPRO_SECURITY_PINS'] == pins, args(svc)
           assert args('mailroom')['MAILROOM_REF'] == 'v9.0.0-ubuviz.1', args('mailroom')
           assert args('courier')['COURIER_REF'] == 'v9.1.19', args('courier')
           assert args('indexer')['INDEXER_REF'] == 'v26.0.1', args('indexer')

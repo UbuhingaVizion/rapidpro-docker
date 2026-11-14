@@ -3,7 +3,7 @@
 # nyaruka publishes a prebuilt courier binary; it is glibc-dynamic, so we keep a
 # glibc runtime (distroless/base has glibc + ca-certificates + tzdata, no shell).
 # static busybox provides a healthcheck client without adding a shell/curl.
-FROM debian:bookworm-slim@sha256:99c0b25c46d0214d5a2091092e7908907dcaecd6a962cde0ac700acee222b6f3 AS tools
+FROM debian:bookworm-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc AS tools
 
 # Pinned to the UbuhingaVizion mailroom fork's protocol, not the newest release.
 # v9.1.19 is the last Courier that puts org_id in the mailroom task and uses the
