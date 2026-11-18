@@ -191,7 +191,7 @@ services:
       context: ./rapidpro/
       args:
         - RAPIDPRO_REPO=UbuhingaVizion/rapidpro
-        - RAPIDPRO_REF=v9.0.0-ubuviz.6
+        - RAPIDPRO_REF=v9.0.0-ubuviz.7
         # Security back-ports applied on top of the fork's uv.lock (see rapidpro/Dockerfile).
         # Fold these into the fork's lockfile and bump RAPIDPRO_REF to drop them.
         - RAPIDPRO_SECURITY_PINS=djangorestframework==3.18.3 oauthlib==4.0.1 django==5.2.19 psycopg==3.3.9 psycopg-binary==3.3.9 certifi==2026.10.23
@@ -239,7 +239,7 @@ services:
       context: ./rapidpro/
       args:
         - RAPIDPRO_REPO=UbuhingaVizion/rapidpro
-        - RAPIDPRO_REF=v9.0.0-ubuviz.6
+        - RAPIDPRO_REF=v9.0.0-ubuviz.7
         # Security back-ports applied on top of the fork's uv.lock (see rapidpro/Dockerfile).
         # Fold these into the fork's lockfile and bump RAPIDPRO_REF to drop them.
         - RAPIDPRO_SECURITY_PINS=djangorestframework==3.18.3 oauthlib==4.0.1 django==5.2.19 psycopg==3.3.9 psycopg-binary==3.3.9 certifi==2026.10.23
@@ -267,7 +267,7 @@ services:
       context: ./rapidpro/
       args:
         - RAPIDPRO_REPO=UbuhingaVizion/rapidpro
-        - RAPIDPRO_REF=v9.0.0-ubuviz.6
+        - RAPIDPRO_REF=v9.0.0-ubuviz.7
         # Security back-ports applied on top of the fork's uv.lock (see rapidpro/Dockerfile).
         # Fold these into the fork's lockfile and bump RAPIDPRO_REF to drop them.
         - RAPIDPRO_SECURITY_PINS=djangorestframework==3.18.3 oauthlib==4.0.1 django==5.2.19 psycopg==3.3.9 psycopg-binary==3.3.9 certifi==2026.10.23
@@ -355,7 +355,8 @@ services:
     build:
       context: ./courier
       args:
-        - COURIER_REF=v9.1.19
+        - COURIER_REPO=UbuhingaVizion/courier
+        - COURIER_REF=v9.1.19-ubuviz.1
     restart: unless-stopped
     depends_on:
       rapidpro:

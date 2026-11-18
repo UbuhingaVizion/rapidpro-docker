@@ -10,7 +10,8 @@ FROM debian:bookworm-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d
 # per-event channel task types. v9.1.20 changed the task payload, v9.1.21 collapsed
 # channel events into a single type, and v9.3.18 renamed the queue
 # (handler -> tasks:handler) — none of which the fork understands.
-ARG COURIER_REF=v9.1.19
+ARG COURIER_REPO=UbuhingaVizion/courier
+ARG COURIER_REF=v9.1.19-ubuviz.1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates curl busybox-static \
@@ -18,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && set -e; \
        ver="${COURIER_REF#v}"; \
        curl -fsSL -o /tmp/app.tgz \
-         "https://github.com/nyaruka/courier/releases/download/${COURIER_REF}/courier_${ver}_linux_amd64.tar.gz"; \
+         "https://github.com/${COURIER_REPO}/releases/download/${COURIER_REF}/courier_${ver}_linux_amd64.tar.gz"; \
        tar -xzf /tmp/app.tgz -C /usr/local/bin courier; \
        chmod +x /usr/local/bin/courier; \
        rm /tmp/app.tgz

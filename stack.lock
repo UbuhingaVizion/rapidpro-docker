@@ -1,0 +1,36 @@
+# Deployable stack pin.
+#
+# The tags here are the ones the compose build args resolve. Change this file and
+# docker-compose.yml together; .github/workflows/gate.yml checks they match.
+version: 1
+stack: stack-2026.11.1
+
+rapidpro:
+  repo: UbuhingaVizion/rapidpro
+  tag: v9.0.0-ubuviz.7
+  commit: 875f31096550724b186443547d699ece0ea1639f
+
+mailroom:
+  repo: UbuhingaVizion/mailroom
+  tag: v9.0.0-ubuviz.1
+  commit: f5a174684b8573d1fafc5df760c2abe8728efd10
+
+courier:
+  repo: UbuhingaVizion/courier
+  tag: v9.1.19-ubuviz.1
+  commit: 045dca805613aad89e577499afbe4feb409a498e
+  base: v9.1.19
+
+indexer:
+  repo: nyaruka/rp-indexer
+  tag: v26.0.1
+
+archiver:
+  repo: nyaruka/rp-archiver
+  tag: v26.0.1
+
+smsgateway:
+  repo: srugano/smsgateway
+  tag: v0.2.0
+  commit: afc6d9bb1619ae588b2ae7f18430f86d080d2450
+  note: runs on the host, not in compose

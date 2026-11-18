@@ -11,11 +11,14 @@ v9.0.0, Django 5.2), with the Go service versions chosen to match its schema. It
 
 ## Version locks
 
+`stack.lock` is the machine-readable pin for the whole stack; `.github/workflows/gate.yml` fails
+if the compose build args drift from it.
+
 | Service | Version | Why |
 |---|---|---|
-| RapidPro (webapp + celery) | fork `UbuhingaVizion/rapidpro` @ `v9.0.0-ubuviz.6` | RapidPro v9.0.0, Django 5.2, Python 3.12, uv-native, plain Django templates; Surveyor media/API kept. `.6` = highcharts 11.4.9 (CVE-2026-118250/118251), dead `rawgit.com` plugin removed, pyotp 2.10 / setuptools 84 |
+| RapidPro (webapp + celery) | fork `UbuhingaVizion/rapidpro` @ `v9.0.0-ubuviz.7` | RapidPro v9.0.0, Django 5.2, Python 3.12, uv-native, plain Django templates; Surveyor media/API kept. `.6` = highcharts 11.4.9 (CVE-2026-118250/118251), dead `rawgit.com` plugin removed, pyotp 2.10 / setuptools 84. `.7` = Sentry error reporting and the 32-character OTP secret column |
 | Mailroom | fork `UbuhingaVizion/mailroom` @ `v9.0.0-ubuviz.1` | surveyor-capable; retains `POST /mr/surveyor/submit` (BSL `nyaruka/mailroom` removed it in `v9.1.10`) |
-| Courier | `v9.1.19` (AGPL) | newest Courier speaking the `UbuhingaVizion` mailroom fork's protocol (task carries `org_id`, per-event channel types) |
+| Courier | fork `UbuhingaVizion/courier` @ `v9.1.19-ubuviz.1` (AGPL) | v9.1.19 is the newest Courier speaking the mailroom fork's protocol (task carries `org_id`, per-event channel types); `.1` adds the TikTok Business Messaging handler |
 | rp-indexer | `v26.0.1` (AGPL) | matches the 9.0.0-era schema (ES7) |
 | rp-archiver | `v26.0.1` (AGPL) | archives old runs/messages to `temba-archives` (optional for Surveyor; **parked** behind the `archiving` profile — see below) |
 | Elasticsearch | `7.17.28` | RapidPro CI version (ES7) |
@@ -142,8 +145,9 @@ is misleading — as of Nov 2026 the RapidPro image is ~400 unfixed-vs-6 fixable
   Alpine repos but upstream images have not been rebuilt (the digests do not move), so no pull
   helps; `nginx-unprivileged:1.31-alpine` and `:stable-alpine` are identical in this regard.
   `postgis:16-3.7-alpine` would cut 72 → 44 HIGH and needs `ALTER EXTENSION postgis UPDATE`.
-- **Courier `v9.1.19` / rp-indexer `v26.0.1`** binaries embed old Go toolchains (1.22.1 / 1.25.0).
-  The protocol/schema locks documented above prevent moving tags; a fork rebuild is the fix.
+- **Courier `v9.1.19-ubuviz.1` / rp-indexer `v26.0.1`** binaries embed old Go toolchains (1.22.x / 1.25.0).
+  The protocol/schema locks documented above prevent moving the upstream tags; the courier fork is
+  rebuilt from source on the v9.1.19 line so it can carry the TikTok handler.
 - **sqlparse 0.5.5** is the one remaining fork-side Python fix and needs the Django 6/smartmin 6.2
   move. **highcharts** was cleared in fork tag `v9.0.0-ubuviz.6` (9.3.0 → 11.4.9, both
   CVE-2026-118250/118251), which also removed a `rawgit.com` plugin script from the dashboard that
@@ -153,7 +157,7 @@ is misleading — as of Nov 2026 the RapidPro image is ~400 unfixed-vs-6 fixable
 
 ## Build tooling
 
-- **RapidPro image** builds from the pinned fork tag `UbuhingaVizion/rapidpro@v9.0.0-ubuviz.6`
+- **RapidPro image** builds from the pinned fork tag `UbuhingaVizion/rapidpro@v9.0.0-ubuviz.7`
   (branch `modern`), fetched with `git clone --branch` in the builder (compose build args
   `RAPIDPRO_REPO`/`RAPIDPRO_REF`). Both stages run on **Debian 13 (trixie)** — bookworm is LTS-only
   and had ~400 unpatched findings, and Debian 13 renamed packages after the time_t transition
@@ -170,8 +174,8 @@ is misleading — as of Nov 2026 the RapidPro image is ~400 unfixed-vs-6 fixable
 - **Go services** build in `mailroom/`, `courier/`, `indexer/`, `archiver/`. Mailroom is compiled
   from the pinned fork tag `UbuhingaVizion/mailroom@v9.0.0-ubuviz.1` (AGPL surveyor-capable fork)
   with `golang:1.26` (`CGO_ENABLED=0`, so static) and runs on **Alpine 3.23** (3.20 went EOL in April 2026).
-  Courier/rp-indexer/rp-archiver use nyaruka's pinned prebuilt AGPL release binaries, which are
-  glibc-dynamic, so they run on **`gcr.io/distroless/base-debian12`** (with a static busybox for the
+  Courier/rp-indexer/rp-archiver use pinned prebuilt AGPL release binaries (courier from the
+  `UbuhingaVizion` fork), which are glibc-dynamic, so they run on **`gcr.io/distroless/base-debian12`** (with a static busybox for the
   courier healthcheck). All four run as non-root (`app`/`nonroot`).
 - **Static files** (`/sitestatic/`) are produced by `collectstatic` into the shared `sitestatic`
   volume and served by **nginx** (not the object store, not whitenoise). nginx uses the
@@ -299,7 +303,7 @@ Set these in `.env` (or the host environment, e.g. `/etc/default/environment`) b
   email, and v9.0.0 has no password-reset email (admins set passwords).
 
 - **Channels**: `docker compose up -d` starts **Courier** by default (no profile needed). The pinned
-  `v9.1.19` speaks the mailroom fork's protocol, so inbound messages flow with **no schema shims and
+  `v9.1.19-ubuviz.1` speaks the mailroom fork's protocol, so inbound messages flow with **no schema shims and
   no patches**. For an on-host SMS gateway (External/EX channel at `host.docker.internal:5000`), set
   `COURIER_DISALLOWED_NETWORKS`/`MAILROOM_DISALLOWED_NETWORKS` (see `.env.example`); both default to
   the secure SSRF policy and are the only place it is relaxed.

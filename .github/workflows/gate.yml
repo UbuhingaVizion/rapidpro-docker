@@ -27,12 +27,21 @@ jobs:
           pins = ('djangorestframework==3.18.3 oauthlib==4.0.1 django==5.2.19 '
                   'psycopg==3.3.9 psycopg-binary==3.3.9 certifi==2026.10.23')
           for svc in ('rapidpro', 'celery', 'celerybeat'):
-              assert args(svc)['RAPIDPRO_REF'] == 'v9.0.0-ubuviz.6', args(svc)
+              assert args(svc)['RAPIDPRO_REF'] == 'v9.0.0-ubuviz.7', args(svc)
               assert args(svc)['RAPIDPRO_SECURITY_PINS'] == pins, args(svc)
           assert args('mailroom')['MAILROOM_REF'] == 'v9.0.0-ubuviz.1', args('mailroom')
-          assert args('courier')['COURIER_REF'] == 'v9.1.19', args('courier')
+          assert args('courier')['COURIER_REF'] == 'v9.1.19-ubuviz.1', args('courier')
           assert args('indexer')['INDEXER_REF'] == 'v26.0.1', args('indexer')
           assert args('archiver')['ARCHIVER_REF'] == 'v26.0.1', args('archiver')
+
+          # stack.lock is the deployable pin; keep the build args in step with it
+          lock = yaml.safe_load(open('stack.lock'))
+          assert lock['rapidpro']['tag'] == args('rapidpro')['RAPIDPRO_REF'], lock['rapidpro']
+          assert lock['mailroom']['tag'] == args('mailroom')['MAILROOM_REF'], lock['mailroom']
+          assert lock['courier']['tag'] == args('courier')['COURIER_REF'], lock['courier']
+          assert lock['courier']['repo'] == args('courier')['COURIER_REPO'], lock['courier']
+          assert lock['indexer']['tag'] == args('indexer')['INDEXER_REF'], lock['indexer']
+          assert lock['archiver']['tag'] == args('archiver')['ARCHIVER_REF'], lock['archiver']
           assert 'elasticsearch:7.17.28' in svcs['elastic']['image'], svcs['elastic']['image']
           assert '16-3.5-alpine' in svcs['postgres']['image'], svcs['postgres']['image']
           assert '7.2-alpine' in svcs['redis']['image'], svcs['redis']['image']
