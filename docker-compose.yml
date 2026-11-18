@@ -36,6 +36,11 @@ x-rapidpro-env: &rapidpro-env
   STORAGE_URL: "${STORAGE_URL:-http://localhost/media}"
   DJANGO_ALLOWED_HOSTS: "${DJANGO_ALLOWED_HOSTS:-*}"
   PUBLIC_DOMAIN: "${PUBLIC_DOMAIN:-}"
+  # Error reporting. Inert until the RapidPro image ships sentry-sdk (fork tag
+  # after this change); a missing DSN disables reporting.
+  SENTRY_DSN: "${RAPIDPRO_SENTRY_DSN:-}"
+  SENTRY_ENVIRONMENT: "${SENTRY_ENVIRONMENT:-production}"
+  SENTRY_RELEASE: "${RAPIDPRO_SENTRY_RELEASE:-}"
   # Outbound email via the Resend SMTP relay (smtp.resend.com:587, user "resend",
   # password = RESEND_API_KEY). Gated by SEND_EMAILS. See docker_settings.py.
   SEND_EMAILS: "${SEND_EMAILS:-true}"
