@@ -45,7 +45,7 @@ jobs:
           assert 'elasticsearch:7.17.28' in svcs['elastic']['image'], svcs['elastic']['image']
           assert '16-3.5-alpine' in svcs['postgres']['image'], svcs['postgres']['image']
           assert '7.2-alpine' in svcs['redis']['image'], svcs['redis']['image']
-          assert 'nginx-unprivileged:1.30-alpine' in svcs['nginx']['image'], svcs['nginx']['image']
+          assert 'nginx-unprivileged:1.31-alpine' in svcs['nginx']['image'], svcs['nginx']['image']
           assert 'seaweedfs:4.52' in svcs['seaweedfs']['image'], svcs['seaweedfs']['image']
 
           # Every service image must stay digest-pinned (a floating tag is a

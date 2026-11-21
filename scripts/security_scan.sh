@@ -132,6 +132,22 @@ for ref in "${REFS[@]}"; do
         "$(count_unfixed "$full")" "$gate" | tee -a "$SUMMARY"
 done
 
+# Trivy catalogues jars and OS packages but NOT a bundled JRE. Elasticsearch ships
+# its own JDK - currently an EOL non-LTS release that receives no updates - so
+# without this line the biggest unpatched component of the stack is invisible.
+# The image is inspected only if present locally (--sbom runs pull it).
+for ref in "${REFS[@]}"; do
+    case "$ref" in *elasticsearch*) ;; *) continue ;; esac
+    if ! docker image inspect "$ref" >/dev/null 2>&1; then
+        [ "$MAKE_SBOM" = 1 ] || continue
+        timeout 300 docker pull -q "$ref" >/dev/null 2>&1 || continue
+    fi
+    jdk=$(docker run --rm --entrypoint cat "$ref" /usr/share/elasticsearch/jdk/release 2>/dev/null \
+        | sed -n 's/^JAVA_VERSION="\(.*\)"$/\1/p' | head -1)
+    [ -n "$jdk" ] && printf 'bundled JDK in %s: %s (not scanned by trivy)\n' \
+        "${ref%%@*}" "$jdk" | tee -a "$SUMMARY"
+done
+
 cat <<EOF | tee -a "$SUMMARY"
 
 CRIT/HIGH/MED/LOW are *fixable* findings only (the actionable set; CRIT gates).

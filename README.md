@@ -25,7 +25,7 @@ if the compose build args drift from it.
 | PostgreSQL | `postgis/postgis:16-3.5-alpine` | matches RapidPro modern CI |
 | Redis | `7.2-alpine` | matches RapidPro modern CI |
 | SeaweedFS | `4.52` | S3-compatible object store for media/attachments |
-| nginx | `nginxinc/nginx-unprivileged:1.30-alpine` (digest-pinned) | routes `/mr/` → mailroom (1.30 = current stable branch) |
+| nginx | `nginxinc/nginx-unprivileged:1.31-alpine` (digest-pinned) | routes `/mr/` → mailroom. 1.31 = mainline, chosen because the vendor's 1.30 tag still ships nginx 1.30.6-r1 (4 CRITICAL, fixed in 1.30.7) |
 
 ## Why this train
 
@@ -131,9 +131,9 @@ is misleading — as of Nov 2026 the RapidPro image is ~400 unfixed-vs-6 fixable
   topology, not patching: unauthenticated but on the internal `rapidpro-data` network with no
   published port.
 - **Debian packages in the RapidPro image** — the dominant residual. The runtime moved to
-  **Debian 13 (trixie)**, which cut the unfixed tail from 402 to **333** HIGH/CRITICAL and the
+  **Debian 13 (trixie)**, which cut the unfixed tail from 402 to ~333 HIGH/CRITICAL and the
   unfixed CRITICALs from 8 to 5 (removed: `libpq5` ×34, `libheif` ×16, mbedtls/aom/glib/sqlite, and
-  the `apt` finding). What remains is concentrated: **ffmpeg 7.1.5 family, 153** (17 CVEs × 9
+  the `apt` finding). What remains is concentrated: **ffmpeg 7.1.5 family, ~216** (24 CVEs × 9
   packages) and **krb5, 42**, plus `libmariadb3`/`mariadb-common` (4 CRITICAL, a hard dependency of
   `libgdal36`'s MySQL driver) and `libxml2`. Debian stable does **not** ship fixes for ffmpeg
   promptly, so this tail survives any Debian base — the distro move was still worth it (trixie is
@@ -141,10 +141,21 @@ is misleading — as of Nov 2026 the RapidPro image is ~400 unfixed-vs-6 fixable
   be dropped: `temba/msgs/media.py` runs it for audio/video conversion on uploaded attachments,
   which is the one reachable path. Verified after the move with an ffmpeg 7.1.5 encode plus
   GeoDjango/GEOS/PROJ spatial queries against PostGIS.
-- **Alpine packages in nginx/PostGIS** (`krb5`, `musl`, `libxslt`, `libexpat`) have fixes in the
-  Alpine repos but upstream images have not been rebuilt (the digests do not move), so no pull
-  helps; `nginx-unprivileged:1.31-alpine` and `:stable-alpine` are identical in this regard.
-  `postgis:16-3.7-alpine` would cut 72 → 44 HIGH and needs `ALTER EXTENSION postgis UPDATE`.
+- **Alpine packages in PostGIS** (`krb5` 16, `libxslt`, `libexpat`, `libcurl`) have fixes in the
+  Alpine repos but the `postgis:16-3.5-alpine` tag has not been rebuilt (the digest does not
+  move), so no pull helps. `postgis:16-3.7-alpine` would cut ~72 → ~44 HIGH and needs
+  `ALTER EXTENSION postgis UPDATE`. nginx had the same problem *plus* four CRITICAL nginx-binary
+  advisories, which is why it moved to `1.31-alpine` (nginx 1.31.7, zero nginx findings, 13 Alpine
+  HIGH left) — re-check the tag before assuming the "stable" branch is patched.
+- **The bundled JRE in Elasticsearch is invisible to the scanner.** ES 7.17.28 ships its own
+  **Oracle JDK 22.0.2 (2024-07-16)** — a non-LTS release that is end-of-life and has had no updates
+  since. Trivy catalogues the 121 jars and the Ubuntu packages but never looks inside
+  `/usr/share/elasticsearch/jdk`, so no gate or SARIF entry will ever flag it; `security_scan.sh`
+  now prints the version instead. Moving to `elasticsearch:8.14.0` does **not** fix it (that image
+  bundles JDK 22.0.1, older still) — only a current 8.19/9.x build ships a patched LTS JDK, and that
+  collides with the fork's `elasticsearch<8` client pin and rp-indexer v26, so it is a migration
+  project of its own. Exposure today is bounded by topology: internal `rapidpro-data` network, no
+  published port, `xpack.security.enabled=false`.
 - **Courier `v9.1.19-ubuviz.1` / rp-indexer `v26.0.1`** binaries embed old Go toolchains (1.22.x / 1.25.0).
   The protocol/schema locks documented above prevent moving the upstream tags; the courier fork is
   rebuilt from source on the v9.1.19 line so it can carry the TikTok handler.

@@ -61,9 +61,13 @@ x-rapidpro-env: &rapidpro-env
 services:
   nginx:
     # unprivileged variant runs as uid 101 and listens on 8080.
-    # 1.30.x is the current stable branch (1.27 EOL'd upstream in 2025; it shipped
-    # Alpine packages with 3 CRITICAL / 58 HIGH open CVEs at the time of the move).
-    image: nginxinc/nginx-unprivileged:1.30-alpine@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03
+    # 1.31 (mainline) rather than 1.30 (stable): the vendor's 1.30 tag has not been
+    # rebuilt since 2026-10-19 and still ships nginx 1.30.6-r1, which carries four
+    # CRITICAL nginx advisories fixed in 1.30.7 (mail-proxy/HTTP2/HTTP3 use-after-free,
+    # HTTP/2 flow-control overflow) plus a resolver UAF and a TLS DoS. 1.31.7 has no
+    # nginx findings. In-place `apk upgrade nginx` is not an option: the image pins
+    # nginx-module-* to 1.30.6-r1 and apk refuses to break the world.
+    image: nginxinc/nginx-unprivileged:1.31-alpine@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e
     restart: unless-stopped
     volumes:
       - "./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro"
@@ -161,7 +165,7 @@ services:
   # bucket publicly readable (Surveyor downloads media by URL). The SeaweedFS S3 port
   # is intentionally not published; nginx proxies /media/ to it.
   seaweedfs-init:
-    image: amazon/aws-cli:latest@sha256:33a16c53ea442e918b58df67301ad76a8fb57082c39f7e78753b898c3f3e87c2
+    image: amazon/aws-cli:latest@sha256:b0102d2269f87d8531d931c1a59e248101ace586886e6c077058d94c1c37b846
     depends_on:
       seaweedfs:
         condition: service_healthy
@@ -474,7 +478,7 @@ services:
   # msg.ubuviz.com -> http://127.0.0.1:80 (the dashboard config was empty -> 503).
   # Runs with host networking so 127.0.0.1:80 is the host's published nginx.
   cloudflared:
-    image: cloudflare/cloudflared@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba
+    image: cloudflare/cloudflared@sha256:e613aadbc2d9511785d2e67a86b0c8ac18dd63a3f9af0d06faf04cbfdcb35f2d
     command: tunnel --config /etc/cloudflared/config.yml --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
     volumes:
       - ./cloudflared/config.yml:/etc/cloudflared/config.yml:ro
